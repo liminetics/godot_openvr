@@ -71,6 +71,10 @@ The godot_openvr.dll or libgodot_openvr.so file should be placed in the location
 Also, depending on what version of Visual Studio that was used to compile the dlls, you will need to install the `Microsoft Visual C++ Redistributable for Visual Studio` on any machine that you deploy your dll on. Godot already needs one of these but if you compile with a newer version of Visual Studio you also need to install that version. It's dumb, I know.
 https://support.microsoft.com/en-au/help/2977003/the-latest-supported-visual-c-downloads
 
+Running the demo
+----------------
+To use the demo you will additionally need to install the godot-xr-tools addon, which is available in the asset library within the editor. For alternative installation methods, see [the documentation](https://godotvr.github.io/godot-xr-tools/docs/installation/).
+
 Mac notes
 ---------
 Valve has dropped support for MacOS in the latest version of OpenVR/SteamVR. While a 32bit binary is still included we have not been able to get this to work.
