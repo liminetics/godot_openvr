@@ -59,7 +59,7 @@ You can compile this module by executing:
 scons platform=windows target=release
 ```
 
-Platform can be windows, linux or osx. OSX is untested.
+Platform can be `windows` or `linux`.
 
 Note that for extensions the dll needs to be compiled with `target=release_debug` when used with the editor.
 

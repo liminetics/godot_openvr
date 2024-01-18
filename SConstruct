@@ -31,11 +31,6 @@ opts.Update(env)
 if env['use_llvm']:
     env['CXX'] = 'clang++'
 
-# fix needed on OSX
-def rpath_fix(target, source, env):
-    os.system('install_name_tool -id @rpath/libgodot_openvr.dylib {0}'.format(target[0]))
-    os.system('install_name_tool -change @rpath/OpenVR.framework/Versions/A/OpenVR @loader_path/OpenVR.framework/Versions/A/OpenVR {0}'.format(target[0]))
-
 # platform dir for openvr libraries
 platform_dir = ''
 
@@ -74,21 +69,6 @@ if env['platform'] == 'windows':
 
     openvr_dll_target = env['target_path'] + "openvr_api.dll"
     openvr_dll_source = env['openvr_path'] + "bin/win" + str(env['bits']) + "/openvr_api.dll"
-
-# no longer supported by OpenVR
-#elif env['platform'] == 'osx':
-#    env['target_path'] += 'osx/'
-#    godot_cpp_library += '.osx'
-#    platform_dir = 'osx32' # on OSX this is a universal binary
-#    if env['target'] in ('debug', 'd'):
-#        env.Append(CCFLAGS = ['-g','-O2', '-arch', 'x86_64'])
-#    else:
-#        env.Append(CCFLAGS = ['-g','-O3', '-arch', 'x86_64'])
-#    env.Append(CXXFLAGS='-std=c++11')
-#    env.Append(LINKFLAGS = ['-arch', 'x86_64'])
-#
-#    openvr_dll_target = env['target_path'] + "???"
-#    openvr_dll_source = env['openvr_path'] + "bin/osx" + str(env['bits']) + "/???"
 
 elif env['platform'] in ('x11', 'linux'):
     env['target_path'] += 'x11/'
@@ -130,8 +110,6 @@ env.Append(LIBS=[godot_cpp_library])
 if (os.name == "nt" and os.getenv("VCINSTALLDIR")):
     env.Append(LIBPATH=[env['openvr_path'] + 'lib/' + platform_dir])
     env.Append(LINKFLAGS=['openvr_api.lib'])
-elif env['platform'] == "osx":
-    env.Append(LINKFLAGS = ['-F' + env['openvr_path'] + 'bin/osx32', '-framework', 'OpenVR'])
 else:
     env.Append(LIBPATH=[env['openvr_path'] + 'lib/' + platform_dir])
     env.Append(LIBS=['openvr_api'])
@@ -149,8 +127,6 @@ else:
 
 # Build our library
 library = env.SharedLibrary(target=env['target_path'] + env['target_name'], source=sources)
-if env['platform'] == "osx":
-    env.AddPostAction(library, rpath_fix)
 
 if openvr_dll_target != '':
     env.AddPostAction(library, Copy(
