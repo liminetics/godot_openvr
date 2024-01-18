@@ -226,45 +226,30 @@ bool openvr_data::initialise() {
 
 	if (success) {
 		OS *os = OS::get_singleton();
-		Ref<Directory> directory;
-		directory.instantiate();
+		Ref<DirAccess> directory = DirAccess::open("res://");
 
 		String exec_path = os->get_executable_path().get_base_dir().replace("\\", "/");
 		String manifest_path;
 
-		Array arr;
-		arr.push_back(String(exec_path));
-		UtilityFunctions::print(String("Exec path: {0}").format(arr));
+		UtilityFunctions::print(String("Exec path: ") + exec_path);
 
 		// check 3 locations in order
 		// 1) check if we have an action folder alongside our executable (runtime deployed actions)
-		arr.push_back(String("/actions/actions.json"));
-		String path = String("{0}{1}").format(arr);
+		String path = exec_path + String("/actions/actions.json");
 		if (directory->file_exists(path)) {
 			manifest_path = path;
 		} else {
-			String project_path = ProjectSettings::get_singleton()->globalize_path("res://");
-			if (project_path.length() != 0) {
-				Array arr2;
-				arr2.push_back(project_path);
-				UtilityFunctions::print(String("Project path: {0}").format(arr2));
-
-				// 2) else check if we have an action folder in our project folder (custom user actions in development)
-				arr2.push_back(String("actions/actions.json"));
-				path = String("{0}{1}").format(arr2);
-				if (directory->file_exists(path)) {
-					manifest_path = path;
-				} else {
-					// 3) else check if we have an action folder in our plugin (if no user overrule)
-					Array arr3;
-					arr3.push_back(project_path);
-					arr3.push_back(String("addons/godot-openvr/actions/actions.json"));
-					path = String("{0}{1}").format(arr3);
-					if (directory->file_exists(path)) {
-						manifest_path = path;
-					}
-				}
-			}
+            // 2) else check if we have an action folder in our project folder (custom user actions in development)
+            path = "actions/actions.json";
+            if (directory->file_exists(path)) {
+                manifest_path = path;
+            } else {
+                // 3) else check if we have an action folder in our plugin (if no user overrule)
+                path = "addons/godot-openvr/actions/actions.json";
+                if (directory->file_exists(path)) {
+                    manifest_path = path;
+                }
+            }
 		}
 
 		if (manifest_path.length() != 0) {
@@ -1284,13 +1269,11 @@ void openvr_data::remove_mesh(ArrayMesh *p_mesh) {
 Transform3D openvr_data::transform_from_matrix(vr::HmdMatrix34_t *p_matrix, double p_world_scale) {
 	Transform3D ret;
 
-	float *basis_ptr = (float *)&ret.basis.elements;
-	int k = 0;
-	for (int i = 0; i < 3; i++) {
-		for (int j = 0; j < 3; j++) {
-			basis_ptr[k++] = p_matrix->m[i][j];
-		}
-	}
+    ret.basis = Basis(
+        Vector3(p_matrix->m[0][0], p_matrix->m[0][1], p_matrix->m[0][2]),
+        Vector3(p_matrix->m[1][0], p_matrix->m[1][1], p_matrix->m[1][2]),
+        Vector3(p_matrix->m[2][0], p_matrix->m[2][1], p_matrix->m[2][2])
+    );
 
 	ret.origin.x = (real_t)(p_matrix->m[0][3] * p_world_scale);
 	ret.origin.y = (real_t)(p_matrix->m[1][3] * p_world_scale);
