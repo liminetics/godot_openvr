@@ -50,7 +50,7 @@ Scons is used for compiling this module. I made the assumption that scons is ins
 You must compile `godot-cpp` first by executing:
 ```
 cd godot-cpp
-scons platform=windows target=release generate_bindings=yes bits=64
+scons platform=windows target=template_release generate_bindings=yes architecture=x86_64
 cd ..
 ```
 
