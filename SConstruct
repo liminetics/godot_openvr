@@ -5,22 +5,28 @@ import os
 customs = ['../custom.py']
 opts = Variables(customs, ARGUMENTS)
 
-# Gets the standart flags CC, CCX, etc.
-env = Environment(ENV = os.environ)
+# Gets the standard flags CC, CCX, etc.
+env = Environment(ENV=os.environ)
 
-# Define our parameters
-opts.Add(EnumVariable('target', "Compilation target", 'release', ['d', 'debug', 'r', 'release']))
-opts.Add(EnumVariable('platform', "Compilation platform", 'windows', ['windows', 'x11', 'linux', 'osx']))
+# Compilation options
 opts.AddVariables(
-    PathVariable('openvr_path', 'The path where the OpenVR repo is located.', 'openvr/'),
-    PathVariable('target_path', 'The path where the lib is installed.', 'demo/addons/godot-openvr/bin/'),
-    PathVariable('target_name', 'The library name.', 'libgodot_openvr', PathVariable.PathAccept),
+    EnumVariable('target', "Compilation target", 'release', ['d', 'debug', 'r', 'release']),
+    EnumVariable('platform', "Compilation platform", 'windows', ['windows', 'x11', 'linux']),
+    PathVariable('target_path', 'The path where the lib is installed', 'demo/addons/godot-openvr/bin/'),
+    PathVariable('target_name', 'The library name', 'libgodot_openvr', PathVariable.PathAccept),
+    BoolVariable('use_mingw', "Use the Mingw compiler, even if MSVC installed", 'no'),
+    BoolVariable('use_llvm', "Use the LLVM compiler", 'no'),
+    EnumVariable('bits', "CPU architecture", '64', ['32', '64']),
 )
-opts.Add(BoolVariable('use_llvm', "Use the LLVM / Clang compiler", 'no'))
-opts.Add(EnumVariable('bits', "CPU architecture", '64', ['32', '64']))
+
+# Options for locating the OpenVR library
+opts.AddVariables(
+    BoolVariable('builtin_openvr', "Use OpenVR library from submodule instead of system-provided", 'yes'),
+    PathVariable('openvr_path', 'The path where the OpenVR repo is located, if builtin_openvr is used', 'openvr/'),
+)
 
 # Other needed paths
-godot_headers_path = "godot-cpp/godot-headers/"
+godot_headers_path = "godot-cpp/gdextension/"
 godot_cpp_path = "godot-cpp/"
 godot_cpp_library = "libgodot-cpp"
 
@@ -43,9 +49,34 @@ if env['platform'] == 'windows':
     env['target_path'] += 'win' + env['bits'] + '/'
     godot_cpp_library += '.windows'
     platform_dir = 'win' + str(env['bits'])
-    if not env['use_llvm']:
-        # This makes sure to keep the session environment variables on windows,
-        # that way you can run scons in a vs 2017 prompt and it will find all the required tools
+
+    if env['use_llvm']:
+        # untested
+        env.Append(CPPDEFINES=["WIN32", "_WIN32", "_WINDOWS", "_CRT_SECURE_NO_WARNINGS"])
+        env.Append(CCFLAGS=["-W3", "-GR"])
+        env.Append(CXXFLAGS=["-std:c++17"])
+        if env['target'] in ('debug', 'd'):
+            env.Append(CCFLAGS = ['-fPIC', '-g3','-Og'])
+        else:
+            env.Append(CCFLAGS = ['-fPIC', '-g','-O3'])
+
+    elif env['use_mingw']:
+        if env['bits'] == '64':
+            arch = 'x86_64'
+        elif env['bits'] == '32':
+            arch = 'i686'
+
+        env['CXX'] = f'{arch}-w64-mingw32-g++'
+        env['AR'] = f'{arch}-w64-mingw32-ar'
+        env['RANLIB'] = f'{arch}-w64-mingw32-ranlib'
+        env['LINK'] = f'{arch}-w64-mingw32-g++'
+
+        env.Append(CCFLAGS=['-g', '-O3', '-std=c++17', '-Wwrite-strings'])
+        env.Append(LINKFLAGS=['--static', '-Wl,--no-undefined', '-static-libgcc', '-static-libstdc++'])
+
+    else:
+        # Preserve the environment so that scons can be executed from within Visual Studio and find the correct
+        # toolchain.
         env.Append(ENV = os.environ)
 
         env.Append(CPPDEFINES=["WIN32", "_WIN32", "_WINDOWS", "_CRT_SECURE_NO_WARNINGS", "TYPED_METHOD_BIND"])
@@ -57,15 +88,6 @@ if env['platform'] == 'windows':
             env.Append(LINKFLAGS = ['-DEBUG'])
         else:
             env.Append(CCFLAGS = ['-O2', '-EHsc', '-DNDEBUG', '-MD'])
-    else:
-        # untested
-        env.Append(CPPDEFINES=["WIN32", "_WIN32", "_WINDOWS", "_CRT_SECURE_NO_WARNINGS"])
-        env.Append(CCFLAGS=["-W3", "-GR"])
-        env.Append(CXXFLAGS=["-std:c++17"])
-        if env['target'] in ('debug', 'd'):
-            env.Append(CCFLAGS = ['-fPIC', '-g3','-Og'])
-        else:
-            env.Append(CCFLAGS = ['-fPIC', '-g','-O3'])
 
     openvr_dll_target = env['target_path'] + "openvr_api.dll"
     openvr_dll_source = env['openvr_path'] + "bin/win" + str(env['bits']) + "/openvr_api.dll"
@@ -107,7 +129,13 @@ env.Append(CPPPATH=[
 env.Append(LIBPATH=[godot_cpp_path + 'bin/'])
 env.Append(LIBS=[godot_cpp_library])
 
-if (os.name == "nt" and os.getenv("VCINSTALLDIR")):
+# Add openvr_api, either from the system or the provided path
+if not env['builtin_openvr']:
+    # Discover the system libopenvr if we've been asked to use it.
+    # `pkg-config` is a Linux-ism, but also may exist in a Windows build environment if e.g. msys2 is in use.
+    # If the user gave the option, assume they set up the system for it to work.
+    env.ParseConfig('pkg-config openvr --cflags --libs')
+elif (os.name == "nt" and os.getenv("VCINSTALLDIR")):
     env.Append(LIBPATH=[env['openvr_path'] + 'lib/' + platform_dir])
     env.Append(LINKFLAGS=['openvr_api.lib'])
 else:
