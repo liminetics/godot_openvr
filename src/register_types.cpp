@@ -6,7 +6,7 @@
 
 #include "register_types.h"
 
-#include <godot/gdnative_interface.h>
+#include <gdextension_interface.h>
 
 #include <godot_cpp/classes/xr_server.hpp>
 #include <godot_cpp/core/class_db.hpp>
@@ -23,8 +23,12 @@ using namespace godot;
 
 Ref<XRInterfaceOpenVR> xr_interface_openvr;
 
-void register_types() {
-	// UtilityFunctions::print("Hello register types!");
+
+void initialize_gdextension_types(ModuleInitializationLevel p_level)
+{
+	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
+		return;
+	}
 
 	ClassDB::register_class<XRInterfaceOpenVR>();
 	ClassDB::register_class<OpenVROverlay>();
@@ -38,7 +42,11 @@ void register_types() {
 	xr_server->add_interface(xr_interface_openvr);
 }
 
-void unregister_types() {
+void uninitialize_gdextension_types(ModuleInitializationLevel p_level) {
+	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
+		return;
+	}
+
 	if (xr_interface_openvr.is_valid()) {
 		if (xr_interface_openvr->is_initialized()) {
 			xr_interface_openvr->uninitialize();
@@ -50,18 +58,18 @@ void unregister_types() {
 
 		xr_interface_openvr.unref();
 	}
-
-	// Note: our class will be unregistered automatically
 }
 
-extern "C" {
-// Initialization.
-GDNativeBool GDN_EXPORT openvr_library_init(const GDNativeInterface *p_interface, const GDNativeExtensionClassLibraryPtr p_library, GDNativeInitialization *r_initialization) {
-	godot::GDExtensionBinding::InitObject init_obj(p_interface, p_library, r_initialization);
+extern "C"
+{
+	// Initialization
+	GDExtensionBool GDE_EXPORT example_library_init(GDExtensionInterfaceGetProcAddress p_get_proc_address, GDExtensionClassLibraryPtr p_library, GDExtensionInitialization *r_initialization)
+	{
+		GDExtensionBinding::InitObject init_obj(p_get_proc_address, p_library, r_initialization);
+		init_obj.register_initializer(initialize_gdextension_types);
+		init_obj.register_terminator(uninitialize_gdextension_types);
+		init_obj.set_minimum_library_initialization_level(MODULE_INITIALIZATION_LEVEL_SCENE);
 
-	init_obj.register_driver_initializer(register_types);
-	init_obj.register_driver_terminator(unregister_types);
-
-	return init_obj.init();
-}
+		return init_obj.init();
+	}
 }

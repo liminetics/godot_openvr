@@ -7,7 +7,7 @@
 #include <openvr.h>
 
 #include <godot_cpp/classes/array_mesh.hpp>
-#include <godot_cpp/classes/directory.hpp>
+#include <godot_cpp/classes/dir_access.hpp>
 #include <godot_cpp/classes/image.hpp>
 #include <godot_cpp/classes/image_texture.hpp>
 #include <godot_cpp/classes/os.hpp>
