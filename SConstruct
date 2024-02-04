@@ -75,6 +75,7 @@ if env['platform'] == 'windows':
 
         env.Append(CCFLAGS=['-g', '-O3', '-std=c++17', '-Wwrite-strings'])
         env.Append(LINKFLAGS=['-Wl,--no-undefined', '-static-libgcc', '-static-libstdc++'])
+        env.Append(CPPDEFINES=["USE_OPENVR_MINGW_HEADER"])
 
     else:
         # Preserve the environment so that scons can be executed from within Visual Studio and find the correct

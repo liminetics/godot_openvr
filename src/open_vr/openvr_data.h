@@ -4,7 +4,13 @@
 #ifndef OPENVR_DATA_H
 #define OPENVR_DATA_H
 
+#ifdef USE_OPENVR_MINGW_HEADER
+// When compiling with mingw, we need to use the tunabrain-patched header file
+// which is packaged by msys2 with the following name.
+#include <openvr_mingw.hpp>
+#else
 #include <openvr.h>
+#endif
 
 #include <godot_cpp/classes/array_mesh.hpp>
 #include <godot_cpp/classes/dir_access.hpp>
