@@ -51,3 +51,7 @@ vulkan/rendering/back_end=1
 xr/enabled=true
 quality/filters/msaa=1
 environment/default_environment="res://default_env.tres"
+
+[xr]
+
+shaders/enabled=true
