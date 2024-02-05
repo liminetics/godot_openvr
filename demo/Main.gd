@@ -10,9 +10,7 @@ func _process(delta):
 
 # Called when the node enters the scene tree for the first time.
 func _ready():
-	# at the moment we can't seem to extend a gdnative class so we'll do this here
-	# $Player/Right_Hand/Viewport2Din3D.get_scene_instance().set_controller($Player/Right_Hand)
-	pass
+	OpenVRInterface.start_xr()
 
 func _on_Right_Hand_action_pressed(action):
 	print("Action pressed " + action)
