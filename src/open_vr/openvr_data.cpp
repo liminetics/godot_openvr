@@ -1269,11 +1269,10 @@ void openvr_data::remove_mesh(ArrayMesh *p_mesh) {
 Transform3D openvr_data::transform_from_matrix(vr::HmdMatrix34_t *p_matrix, double p_world_scale) {
 	Transform3D ret;
 
-    ret.basis = Basis(
-        Vector3(p_matrix->m[0][0], p_matrix->m[0][1], p_matrix->m[0][2]),
-        Vector3(p_matrix->m[1][0], p_matrix->m[1][1], p_matrix->m[1][2]),
-        Vector3(p_matrix->m[2][0], p_matrix->m[2][1], p_matrix->m[2][2])
-    );
+	ret.basis = Basis(
+			Vector3(p_matrix->m[0][0], p_matrix->m[1][0], p_matrix->m[2][0]),
+			Vector3(p_matrix->m[0][1], p_matrix->m[1][1], p_matrix->m[2][1]),
+			Vector3(p_matrix->m[0][2], p_matrix->m[1][2], p_matrix->m[2][2]));
 
 	ret.origin.x = (real_t)(p_matrix->m[0][3] * p_world_scale);
 	ret.origin.y = (real_t)(p_matrix->m[1][3] * p_world_scale);
