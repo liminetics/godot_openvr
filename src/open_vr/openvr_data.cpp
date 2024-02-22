@@ -226,34 +226,40 @@ bool openvr_data::initialise() {
 
 	if (success) {
 		OS *os = OS::get_singleton();
+		ProjectSettings *project_settings = ProjectSettings::get_singleton();
 		Ref<DirAccess> directory = DirAccess::open("res://");
 
-		String exec_path = os->get_executable_path().get_base_dir().replace("\\", "/");
+		String exec_path = os->get_executable_path().replace("\\", "/").get_base_dir();
 		String manifest_path;
-
-		UtilityFunctions::print(String("Exec path: ") + exec_path);
 
 		// check 3 locations in order
 		// 1) check if we have an action folder alongside our executable (runtime deployed actions)
-		String path = exec_path + String("/actions/actions.json");
+		String path = exec_path.path_join("actions/actions.json");
 		if (directory->file_exists(path)) {
 			manifest_path = path;
 		} else {
-            // 2) else check if we have an action folder in our project folder (custom user actions in development)
-            path = "actions/actions.json";
-            if (directory->file_exists(path)) {
-                manifest_path = path;
-            } else {
-                // 3) else check if we have an action folder in our plugin (if no user overrule)
-                path = "addons/godot-openvr/actions/actions.json";
-                if (directory->file_exists(path)) {
-                    manifest_path = path;
-                }
-            }
+			// 2) else check if we have an action folder in our project folder (custom user actions in development)
+			path = "res://actions/actions.json";
+			if (directory->file_exists(path)) {
+				manifest_path = path;
+			} else {
+				// 3) else check if we have an action folder in our plugin (if no user overrule)
+				path = "res://addons/godot-openvr/actions/actions.json";
+				if (directory->file_exists(path)) {
+					manifest_path = path;
+				}
+			}
 		}
 
 		if (manifest_path.length() != 0) {
-			vr::EVRInputError err = vr::VRInput()->SetActionManifestPath(manifest_path.utf8().get_data());
+			String absolute_path;
+			if (os->has_feature("editor")) {
+				absolute_path = project_settings->globalize_path(manifest_path);
+			} else {
+				absolute_path = exec_path.path_join(manifest_path);
+			}
+
+			vr::EVRInputError err = vr::VRInput()->SetActionManifestPath(absolute_path.utf8().get_data());
 			if (err == vr::VRInputError_None) {
 				Array arr;
 				arr.push_back(manifest_path);
