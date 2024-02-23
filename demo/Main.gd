@@ -1,6 +1,6 @@
 extends Node3D
 
-func _process(delta):
+func _process(_delta):
 	# Test for escape to close application, space to reset our reference frame
 	if (Input.is_key_pressed(KEY_ESCAPE)):
 		get_tree().quit()

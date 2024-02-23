@@ -10,7 +10,7 @@ func _ready():
 	pass # Replace with function body.
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
-func _process(delta):
+func _process(_delta):
 	if controller:
 		var primary = controller.get_vector2("primary")
 		$VBoxContainer/PrimaryJoyX/Value.value = 100.0 * primary.x
