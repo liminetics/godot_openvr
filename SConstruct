@@ -6,9 +6,17 @@ customs = ['../custom.py']
 opts = Variables(customs, ARGUMENTS)
 
 # Gets the standard flags CC, CCX, etc.
+#
+# TODO: Since OpenVR only officially works with binaries compiled by MSVC, we
+# should enforce that we're not accidentally using mingw. SCons will fall back
+# by default. If we defer tool loading by setting tools=[] here and changing
+# them later after checking our build flags, we can use
+# MSVC_NOTFOUND_POLICY='Error' to bail out if we're not using the expected
+# compiler.
 env = Environment(ENV=os.environ)
 
 # Compilation options
+# TODO: Use proper path manipulation functions so path variables don't force the user to specify the trailing slash.
 opts.AddVariables(
     EnumVariable('target', "Compilation target", 'release', ['d', 'debug', 'r', 'release']),
     EnumVariable('platform', "Compilation platform", 'windows', ['windows', 'x11', 'linux']),
@@ -17,6 +25,7 @@ opts.AddVariables(
     PathVariable('target_name', 'The library name', 'libgodot_openvr', PathVariable.PathAccept),
     BoolVariable('use_mingw', "Use the Mingw compiler, even if MSVC installed", 'no'),
     BoolVariable('use_llvm', "Use the LLVM compiler", 'no'),
+    BoolVariable("use_static_cpp", "Link MinGW/MSVC C++ runtime libraries statically", True)),
     EnumVariable('bits', "CPU architecture", '64', ['32', '64']),
 )
 
@@ -41,7 +50,10 @@ elif env['bits'] == '32':
 
 # Check some environment settings
 if env['use_llvm']:
+    # TODO: Set tools['clang'] by deferring tool loading
     env['CXX'] = 'clang++'
+
+debug = env['target'] in ('debug', 'd')
 
 # platform dir for openvr libraries
 platform_dir = ''
@@ -68,29 +80,44 @@ if env['platform'] == 'windows':
 
     elif env['use_mingw']:
 
+        # TODO: Set tools=['mingw'] by deferring tool loading
         env['CXX'] = f'{arch}-w64-mingw32-g++'
         env['AR'] = f'{arch}-w64-mingw32-ar'
         env['RANLIB'] = f'{arch}-w64-mingw32-ranlib'
         env['LINK'] = f'{arch}-w64-mingw32-g++'
 
         env.Append(CCFLAGS=['-g', '-O3', '-std=c++17', '-Wwrite-strings'])
-        env.Append(LINKFLAGS=['-Wl,--no-undefined', '-static-libgcc', '-static-libstdc++'])
+        env.Append(LINKFLAGS=['-Wl,--no-undefined'])
         env.Append(CPPDEFINES=["USE_OPENVR_MINGW_HEADER"])
+
+        if env["use_static_cpp"]:
+            env.Append(LINKFLAGS=['-static', '-static-libgcc', '-static-libstdc++'])
 
     else:
         # Preserve the environment so that scons can be executed from within Visual Studio and find the correct
-        # toolchain.
+        # toolchain. TODO: Why is this duplicated here?
         env.Append(ENV = os.environ)
 
+        if env["bits"] == "64":
+            env["TARGET_ARCH"] = "amd64"
+        elif env["bits"] == "32":
+            env["TARGET_ARCH"] = "x86"
+
+        env["is_msvc"] = True
         env.Append(CPPDEFINES=["WIN32", "_WIN32", "_WINDOWS", "_CRT_SECURE_NO_WARNINGS", "TYPED_METHOD_BIND"])
         env.Append(CCFLAGS=["-W3", "-GR"])
         env.Append(CXXFLAGS=["-std:c++17"])
-        if env['target'] in ('debug', 'd'):
-            env.Append(CPPDEFINES=["_DEBUG"])
-            env.Append(CCFLAGS = ['-EHsc', '-MDd', '-ZI', '-FS'])
+        if debug:
+            env.Append(CCFLAGS = ['-EHsc', '-ZI', '-FS'])
             env.Append(LINKFLAGS = ['-DEBUG'])
         else:
-            env.Append(CCFLAGS = ['-O2', '-EHsc', '-DNDEBUG', '-MD'])
+            env.Append(CCFLAGS = ['-O2', '-EHsc', '-DNDEBUG'])
+
+        runtime_debug = 'd' if debug else ''
+        if env["use_static_cpp"]:
+            env.Append(CCFLAGS=["-MT" + runtime_debug])
+        else:
+            env.Append(CCFLAGS=["-MD" + runtime_debug])
 
     openvr_dll_target = env['target_path'] + "openvr_api.dll"
     openvr_dll_source = env['openvr_path'] + "bin/win" + str(env['bits']) + "/openvr_api.dll"
@@ -110,7 +137,7 @@ elif env['platform'] in ('x11', 'linux'):
     openvr_dll_source = env['openvr_path'] + "bin/linux" + str(env['bits']) + "/libopenvr_api.so"
 
 # Complete godot-cpp library path
-if env['target'] in ('debug', 'd'):
+if debug:
     godot_cpp_library += '.template_debug'
     env.Append(CPPDEFINES=["DEBUG_ENABLED", "DEBUG_METHODS_ENABLED"])
 else:
@@ -139,6 +166,7 @@ if not env['builtin_openvr']:
     # If the user gave the option, assume they set up the system for it to work.
     # Because we won't have the library as a DLL to bundle, build statically. Need to define OPENVR_BUILD_STATIC,
     # see https://github.com/ValveSoftware/openvr/issues/1457
+    # TODO: Should this use force the other static flags? Is there a better way?
     env.ParseConfig('pkg-config openvr --cflags --libs')
     env.Append(LINKFLAGS=['-static'])
     env.Append(CPPDEFINES=['OPENVR_BUILD_STATIC'])
@@ -157,7 +185,7 @@ sources += Glob('src/*.cpp')
 sources += Glob('src/*/*.c')
 sources += Glob('src/*/*.cpp')
 
-if env['target'] in ('debug', 'd'):
+if debug:
     env['target_name'] += "_debug"
 else:
     env['target_name'] += "_release"
