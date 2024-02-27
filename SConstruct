@@ -5,15 +5,9 @@ import os
 customs = ['../custom.py']
 opts = Variables(customs, ARGUMENTS)
 
-# Gets the standard flags CC, CCX, etc.
-#
-# TODO: Since OpenVR only officially works with binaries compiled by MSVC, we
-# should enforce that we're not accidentally using mingw. SCons will fall back
-# by default. If we defer tool loading by setting tools=[] here and changing
-# them later after checking our build flags, we can use
-# MSVC_NOTFOUND_POLICY='Error' to bail out if we're not using the expected
-# compiler.
-env = Environment(ENV=os.environ)
+# Defer tool intitialization so we can decide which toolchain to use based on our variables. They will be loaded later
+# using env.Tool.
+env = Environment(ENV=os.environ, tools=[])
 
 # Compilation options
 # TODO: Use proper path manipulation functions so path variables don't force the user to specify the trailing slash.
@@ -25,7 +19,7 @@ opts.AddVariables(
     PathVariable('target_name', 'The library name', 'libgodot_openvr', PathVariable.PathAccept),
     BoolVariable('use_mingw', "Use the Mingw compiler, even if MSVC installed", 'no'),
     BoolVariable('use_llvm', "Use the LLVM compiler", 'no'),
-    BoolVariable("use_static_cpp", "Link MinGW/MSVC C++ runtime libraries statically", True)),
+    BoolVariable("use_static_cpp", "Link MinGW/MSVC C++ runtime libraries statically", True),
     EnumVariable('bits', "CPU architecture", '64', ['32', '64']),
 )
 
@@ -48,11 +42,6 @@ if env['bits'] == '64':
 elif env['bits'] == '32':
     arch = 'i686'
 
-# Check some environment settings
-if env['use_llvm']:
-    # TODO: Set tools['clang'] by deferring tool loading
-    env['CXX'] = 'clang++'
-
 debug = env['target'] in ('debug', 'd')
 
 # platform dir for openvr libraries
@@ -70,6 +59,7 @@ if env['platform'] == 'windows':
 
     if env['use_llvm']:
         # untested
+        env.Tool('clang')
         env.Append(CPPDEFINES=["WIN32", "_WIN32", "_WINDOWS", "_CRT_SECURE_NO_WARNINGS"])
         env.Append(CCFLAGS=["-W3", "-GR"])
         env.Append(CXXFLAGS=["-std:c++17"])
@@ -79,8 +69,7 @@ if env['platform'] == 'windows':
             env.Append(CCFLAGS = ['-fPIC', '-g','-O3'])
 
     elif env['use_mingw']:
-
-        # TODO: Set tools=['mingw'] by deferring tool loading
+        env.Tool('mingw')
         env['CXX'] = f'{arch}-w64-mingw32-g++'
         env['AR'] = f'{arch}-w64-mingw32-ar'
         env['RANLIB'] = f'{arch}-w64-mingw32-ranlib'
@@ -94,9 +83,14 @@ if env['platform'] == 'windows':
             env.Append(LINKFLAGS=['-static-libgcc', '-static-libstdc++'])
 
     else:
+        env.Tool('default')
         # Preserve the environment so that scons can be executed from within Visual Studio and find the correct
-        # toolchain. TODO: Why is this duplicated here?
-        env.Append(ENV = os.environ)
+        # toolchain. TODO: Why is environ duplicated here?
+
+        # Since OpenVR only officially works with binaries compiled by MSVC and the user hasn't set something
+        # else explicitly, we enforce that we're not accidentally using a fallback toolchain by bailing if MSVC
+        # isn't chosen here.
+        env.Append(ENV=os.environ, MSVC_NOTFOUND_POLICY='Error')
 
         if env["bits"] == "64":
             env["TARGET_ARCH"] = "amd64"
