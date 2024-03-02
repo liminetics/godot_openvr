@@ -107,11 +107,10 @@ if env['platform'] == 'windows':
         else:
             env.Append(CCFLAGS = ['-O2', '-EHsc', '-DNDEBUG'])
 
-        runtime_debug = 'd' if debug else ''
         if env["use_static_cpp"]:
-            env.Append(CCFLAGS=["-MT" + runtime_debug])
+            env.Append(CCFLAGS=["-MT"])
         else:
-            env.Append(CCFLAGS=["-MD" + runtime_debug])
+            env.Append(CCFLAGS=["-MD"])
 
     openvr_dll_target = env['target_path'] + "openvr_api.dll"
     openvr_dll_source = env['openvr_path'] + "bin/win" + str(env['bits']) + "/openvr_api.dll"
