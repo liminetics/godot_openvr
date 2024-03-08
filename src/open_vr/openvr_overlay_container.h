@@ -10,6 +10,8 @@ namespace godot {
 class OpenVROverlayContainer : public SubViewportContainer {
 	GDCLASS(OpenVROverlayContainer, SubViewportContainer)
 
+	friend class openvr_data;
+
 public:
 	enum TrackedDevice {
 		None,
@@ -47,6 +49,9 @@ private:
 	void draw_overlay(const Ref<Texture2D> &p_texture);
 
 	bool update_overlay_transform();
+
+	// Sent along by openvr_data when an event arrives for our overlay.
+	void process_event(vr::VREvent_t event);
 
 protected:
 	static void _bind_methods();

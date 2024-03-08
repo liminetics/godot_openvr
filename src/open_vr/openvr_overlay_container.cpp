@@ -110,6 +110,10 @@ void OpenVROverlayContainer::_exit_tree() {
 	}
 }
 
+void OpenVROverlayContainer::process_event(vr::VREvent_t event) {
+	// TODO
+}
+
 void OpenVROverlayContainer::draw_overlay(const Ref<Texture2D> &p_texture) {
 	if (overlay == vr::k_ulOverlayHandleInvalid) {
 		return;

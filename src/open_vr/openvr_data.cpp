@@ -2,6 +2,7 @@
 // Helper calls and singleton container for accessing openvr
 
 #include "openvr_data.h"
+#include "openvr_overlay_container.h"
 
 #include "godot_cpp/classes/time.hpp"
 #include "godot_cpp/classes/xr_server.hpp"
@@ -506,6 +507,13 @@ void openvr_data::process() {
 	}
 
 	// TODO add in updating skeleton data
+
+	for (int i = 0; i < get_overlay_count(); i++) {
+		OpenVROverlayContainer *container = Object::cast_to<OpenVROverlayContainer>(ObjectDB::get_instance(overlays[i].container_instance_id));
+		while (vr::VROverlay()->PollNextOverlayEvent(overlays[i].handle, &event, sizeof(event))) {
+			container->process_event(event);
+		}
+	}
 }
 
 ////////////////////////////////////////////////////////////////
