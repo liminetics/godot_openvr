@@ -69,6 +69,10 @@ public:
 	virtual void _post_draw_viewport(const RID &render_target, const Rect2 &screen_rect) override;
 	virtual void _end_frame() override;
 
+	// OpenVR specific stuff
+	PackedStringArray get_driver_list();
+	Ref<DirAccess> get_resource_full_path(const String &p_resource_name, const String p_resource_type_directory);
+
 	XRInterfaceOpenVR();
 	~XRInterfaceOpenVR();
 };

@@ -565,6 +565,40 @@ const godot::Vector3 *openvr_data::get_play_area() const {
 }
 
 ////////////////////////////////////////////////////////////////
+// resources
+
+PackedStringArray openvr_data::get_driver_list() {
+	// XXX: This just doesn't... work. We get back some sort of interface, but accessing it segfaults.
+	PackedStringArray drivers = PackedStringArray();
+
+	vr::EVRInitError error = vr::VRInitError_None;
+	vr::IVRDriverManager *driver_manager = (vr::IVRDriverManager *)vr::VR_GetGenericInterface(vr::IVRDriverManager_Version, &error);
+	if (error != vr::VRInitError_None) {
+		return drivers;
+	}
+
+	for (int i = 0; i < driver_manager->GetDriverCount(); i++) {
+		uint32_t length = driver_manager->GetDriverName(i, nullptr, 0);
+		char *name = new char[length];
+		driver_manager->GetDriverName(i, name, length);
+		UtilityFunctions::print(String(name));
+		drivers.push_back(String(name));
+	}
+
+	return drivers;
+}
+
+Ref<DirAccess> openvr_data::get_resource_full_path(const godot::String &p_resource_name, const godot::String p_resource_type_directory) {
+	vr::EVRInitError error = vr::VRInitError_None;
+	vr::IVRResources *resources = (vr::IVRResources *)vr::VR_GetGenericInterface(vr::IVRResources_Version, &error);
+
+	char path[32768];
+	resources->GetResourceFullPath(p_resource_name.utf8(), p_resource_type_directory.utf8(), path, sizeof(path));
+
+	return DirAccess::open(String(path));
+}
+
+////////////////////////////////////////////////////////////////
 // interact with openvr
 
 void openvr_data::get_recommended_rendertarget_size(uint32_t *p_width, uint32_t *p_height) {

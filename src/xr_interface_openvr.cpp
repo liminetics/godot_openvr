@@ -34,6 +34,9 @@ void XRInterfaceOpenVR::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("get_device_battery_percentage"), &XRInterfaceOpenVR::get_device_battery_percentage);
 	ClassDB::bind_method(D_METHOD("is_device_charging"), &XRInterfaceOpenVR::is_device_charging);
+
+	ClassDB::bind_method(D_METHOD("get_driver_list"), &XRInterfaceOpenVR::get_driver_list);
+	ClassDB::bind_method(D_METHOD("get_resource_full_path"), &XRInterfaceOpenVR::get_resource_full_path);
 }
 
 int XRInterfaceOpenVR::get_application_type() const {
@@ -164,6 +167,22 @@ bool XRInterfaceOpenVR::is_device_charging(vr::TrackedDeviceIndex_t p_tracked_de
 	}
 
 	return is_charging;
+}
+
+PackedStringArray XRInterfaceOpenVR::get_driver_list() {
+	if (ovr == nullptr) {
+		return PackedStringArray();
+	}
+
+	return ovr->get_driver_list();
+}
+
+Ref<DirAccess> XRInterfaceOpenVR::get_resource_full_path(const godot::String &p_resource_name, const godot::String p_resource_type_directory) {
+	if (ovr == nullptr) {
+		return nullptr;
+	}
+
+	return ovr->get_resource_full_path(p_resource_name, p_resource_type_directory);
 }
 
 ////////////////////////////////////////////////////////////////

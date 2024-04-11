@@ -206,6 +206,11 @@ public:
 	const godot::Vector3 *get_play_area() const;
 
 	////////////////////////////////////////////////////////////////
+	// resources
+	PackedStringArray get_driver_list();
+	Ref<DirAccess> get_resource_full_path(const godot::String &p_resource_name, const godot::String p_resource_type_directory);
+
+	////////////////////////////////////////////////////////////////
 	// action set
 
 	godot::String get_default_action_set() const;
