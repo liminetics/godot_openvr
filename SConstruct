@@ -116,6 +116,7 @@ if env['platform'] == 'windows':
     openvr_dll_source = env['openvr_path'] + "bin/win" + str(env['bits']) + "/openvr_api.dll"
 
 elif env['platform'] in ('x11', 'linux'):
+    env.Tool('default')
     env['target_path'] += 'x11/'
     godot_cpp_library += '.linux'
     platform_dir = 'linux' + str(env['bits'])
