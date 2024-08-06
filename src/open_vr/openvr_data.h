@@ -27,6 +27,9 @@
 #include <vector>
 
 namespace godot {
+
+class OpenVREventHandler; // Cyclic reference...
+
 class openvr_data {
 public:
 	// enums
@@ -58,6 +61,8 @@ private:
 
 	OpenVRApplicationType application_type;
 	OpenVRTrackingUniverse tracking_universe;
+
+	OpenVREventHandler *vrevent_handler;
 
 	vr::IVRChaperone *chaperone;
 	bool play_area_is_dirty;
@@ -182,6 +187,9 @@ public:
 	godot::Transform3D get_eye_to_head_transform(int p_eye, double p_world_scale = 1.0);
 
 	void pre_render_update();
+
+	void set_vrevent_handler(OpenVREventHandler *handler);
+	void remove_vrevent_handler(OpenVREventHandler *handler);
 
 	// interact with tracking info
 	const godot::Transform3D get_hmd_transform() const;

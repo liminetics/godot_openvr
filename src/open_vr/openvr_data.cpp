@@ -11,6 +11,8 @@
 
 #include <string.h>
 
+#include "openvr_event_handler.h"
+
 using namespace godot;
 
 openvr_data *openvr_data::singleton = nullptr;
@@ -327,8 +329,13 @@ void openvr_data::process() {
 		}
 	}
 
+	// Collect all the new events so we can dispatch signals after we've performed our internal processing.
+	std::vector<vr::VREvent_t> events_to_signal;
+
 	vr::VREvent_t event;
 	while (hmd->PollNextEvent(&event, sizeof(event))) {
+		events_to_signal.push_back(event);
+
 		switch (event.eventType) {
 			case vr::VREvent_TrackedDeviceActivated: {
 				attach_device(event.trackedDeviceIndex);
@@ -425,6 +432,24 @@ void openvr_data::process() {
 	}
 
 	// TODO add in updating skeleton data
+
+	// Now we're done updating the state of the universe and can forward signals to anyone interested.
+
+	// For global events, emit_signal needs to happen in XRInterfaceOpenVR since it is an Object.
+	// We store them all here for it to access just after this returns.
+	if (vrevent_handler) {
+		for (int i = 0; i < events_to_signal.size(); i++) {
+			vrevent_handler->handle_event(events_to_signal[i]);
+		}
+	}
+
+	// For overlays, we have access to them directly and can trigger them to emit signals right here.
+	for (int i = 0; i < get_overlay_count(); i++) {
+		OpenVROverlayContainer *container = Object::cast_to<OpenVROverlayContainer>(ObjectDB::get_instance(overlays[i].container_instance_id));
+		while (vr::VROverlay()->PollNextOverlayEvent(overlays[i].handle, &event, sizeof(event))) {
+			container->process_event(event);
+		}
+	}
 }
 
 ////////////////////////////////////////////////////////////////
@@ -559,6 +584,18 @@ void openvr_data::pre_render_update() {
 
 		// Update our hmd_transform already, we will use this when rendering but it's too late to update it in our node tree
 		hmd_transform = transform_from_matrix(&tracked_device_pose[0].mDeviceToAbsoluteTracking, 1.0);
+	}
+}
+
+void openvr_data::set_vrevent_handler(OpenVREventHandler *handler) {
+	vrevent_handler = handler;
+}
+
+// Remove the given handler as our vrevent_handler only if it is still set as such.
+// Prevents removing the wrong handler if another was set later on.
+void openvr_data::remove_vrevent_handler(OpenVREventHandler *handler) {
+	if (vrevent_handler == handler) {
+		vrevent_handler = nullptr;
 	}
 }
 
