@@ -4,7 +4,10 @@
 #define VREVENT_SIGNAL(vrevent_name, vrevent_type, source)                                                                    \
 	{                                                                                                                         \
 		String name = String(#vrevent_name).trim_prefix("vr::EVREventType::VREvent_");                                        \
-		ADD_SIGNAL(MethodInfo(name, PropertyInfo(Variant::DICTIONARY, "data")));                                              \
+		ADD_SIGNAL(MethodInfo(name,                                                                                           \
+				PropertyInfo(Variant::INT, "eventAgeSeconds"),                                                                \
+				PropertyInfo(Variant::INT, "trackedDeviceIndex"),                                                             \
+				PropertyInfo(Variant::DICTIONARY, "data")));                                                                  \
 		OpenVREventHandler::event_signals.insert(vrevent_name, (vr_event){ .data_type = vrevent_type, .signal_name = name }); \
 	}
 
@@ -290,7 +293,7 @@ void OpenVREventHandler::handle_event(vr::VREvent_t event) {
 		case AudioMuteControl: break;
 	}
 
-	this->emit_signal(info.signal_name, data);
+	this->emit_signal(info.signal_name, event.eventAgeSeconds, event.trackedDeviceIndex, data);
 }
 
 OpenVREventHandler::OpenVREventHandler() {
