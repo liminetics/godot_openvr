@@ -1,3 +1,6 @@
+#pragma GCC diagnostic ignored "-Wunknown-pragmas"
+#pragma GCC optimize("no-var-tracking") // GCC's variable assignment tracking chokes on the huge number of structs in _bind_methods.
+
 #include "openvr_event_handler.h"
 #include <godot_cpp/variant/utility_functions.hpp>
 
