@@ -16,7 +16,10 @@ private:
 	openvr_data *ovr;
 
 	enum OpenVREventDataType { // Derived from the VREvent_Data_t union.
-		Reserved, // VREvent_Reserved_t should never arrive, used here to indicate the data should not be decoded.
+		None, // Documented to contain no data.
+		Unknown = None, // Undocumented and not yet determined. Please fix these entries if you can!
+
+		// Reserved, // Unused, here for completeness.
 		Controller,
 		Mouse,
 		Scroll,
