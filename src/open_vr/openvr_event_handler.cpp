@@ -4,6 +4,10 @@
 #include "openvr_event_handler.h"
 #include <godot_cpp/variant/utility_functions.hpp>
 
+// This macro is used to define signals for each VREvent to make it impossible for the list of signals to get out of sync with
+// the events. The name of the signal is automatically derived from the EVREventType. This would normally be impossible since
+// there is no way to introspect the name of enum members. While IVRSystem provides GetEventTypeNameFromEnum, this would
+// require connecting to OpenVR before creating our signals which makes the experience in the editor less than ideal.
 #define VREVENT_SIGNAL(vrevent_name, vrevent_type, source)                                                                    \
 	{                                                                                                                         \
 		String name = String(#vrevent_name).trim_prefix("vr::EVREventType::VREvent_");                                        \
