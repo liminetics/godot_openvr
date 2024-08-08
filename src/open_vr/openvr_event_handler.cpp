@@ -23,6 +23,40 @@ using namespace godot;
 VMap<uint32_t, OpenVREventHandler::vr_event> OpenVREventHandler::event_signals;
 
 void OpenVREventHandler::_bind_methods() {
+	ClassDB::bind_method(D_METHOD("register_event_signal", "event_id", "type", "signal_name"), &OpenVREventHandler::register_event_signal);
+
+	BIND_ENUM_CONSTANT(None);
+	BIND_ENUM_CONSTANT(Controller);
+	BIND_ENUM_CONSTANT(Mouse);
+	BIND_ENUM_CONSTANT(Scroll);
+	BIND_ENUM_CONSTANT(Process);
+	BIND_ENUM_CONSTANT(Notification);
+	BIND_ENUM_CONSTANT(Overlay);
+	BIND_ENUM_CONSTANT(Status);
+	BIND_ENUM_CONSTANT(Keyboard);
+	BIND_ENUM_CONSTANT(Ipd);
+	BIND_ENUM_CONSTANT(Chaperone);
+	BIND_ENUM_CONSTANT(PerformanceTest);
+	BIND_ENUM_CONSTANT(TouchPadMove);
+	BIND_ENUM_CONSTANT(SeatedZeroPoseReset);
+	BIND_ENUM_CONSTANT(Screenshot);
+	BIND_ENUM_CONSTANT(ScreenshotProgress);
+	BIND_ENUM_CONSTANT(ApplicationLaunch);
+	BIND_ENUM_CONSTANT(EditingCameraSurface);
+	BIND_ENUM_CONSTANT(MessageOverlay);
+	BIND_ENUM_CONSTANT(Property);
+	BIND_ENUM_CONSTANT(HapticVibration);
+	BIND_ENUM_CONSTANT(WebConsole);
+	BIND_ENUM_CONSTANT(InputBindingLoad);
+	BIND_ENUM_CONSTANT(InputActionManifestLoad);
+	BIND_ENUM_CONSTANT(SpatialAnchor);
+	BIND_ENUM_CONSTANT(ProgressUpdate);
+	BIND_ENUM_CONSTANT(ShowUI);
+	BIND_ENUM_CONSTANT(ShowDevTools);
+	BIND_ENUM_CONSTANT(HDCPError);
+	BIND_ENUM_CONSTANT(AudioVolumeControl);
+	BIND_ENUM_CONSTANT(AudioMuteControl);
+
 	// The EVREvent "documentation" is incomplete: only a handful of the events have a comment describing which VREvent_Data_t
 	// is attached to them. Here, we use `Unknown` for the ones that haven't yet been reverse engineered. `None` means it is
 	// known to actually not include any data.
@@ -405,6 +439,26 @@ void OpenVREventHandler::handle_event(vr::VREvent_t event) {
 	}
 
 	this->emit_signal(info.signal_name, event.eventAgeSeconds, event.trackedDeviceIndex, data);
+}
+
+void OpenVREventHandler::register_event_signal(uint32_t p_event_id, OpenVREventDataType p_type, String p_signal_name) {
+	Dictionary eventAgeSeconds;
+	eventAgeSeconds["name"] = "eventAgeSeconds";
+	eventAgeSeconds["type"] = Variant::INT;
+	Dictionary trackedDeviceIndex;
+	trackedDeviceIndex["name"] = "trackedDeviceIndex";
+	trackedDeviceIndex["type"] = Variant::INT;
+	Dictionary data;
+	data["name"] = "data";
+	data["type"] = Variant::DICTIONARY;
+
+	Array args;
+	args.push_back(eventAgeSeconds);
+	args.push_back(trackedDeviceIndex);
+	args.push_back(data);
+
+	this->add_user_signal(p_signal_name, args);
+	OpenVREventHandler::event_signals.insert(p_event_id, (vr_event){ .data_type = p_type, .signal_name = p_signal_name });
 }
 
 OpenVREventHandler::OpenVREventHandler() {

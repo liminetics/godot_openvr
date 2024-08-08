@@ -12,9 +12,7 @@ class OpenVREventHandler : public Node {
 
 	friend class openvr_data;
 
-private:
-	openvr_data *ovr;
-
+public:
 	enum OpenVREventDataType { // Derived from the VREvent_Data_t union.
 		None, // Documented to contain no data.
 		Unknown = None, // Undocumented and not yet determined. Please fix these entries if you can!
@@ -52,6 +50,12 @@ private:
 		AudioMuteControl,
 	};
 
+	// Register an event type which exists in a newer version of OpenVR.
+	void register_event_signal(uint32_t p_event_id, OpenVREventDataType p_type, String p_signal_name);
+
+private:
+	openvr_data *ovr;
+
 	struct vr_event {
 		OpenVREventDataType data_type;
 		StringName signal_name;
@@ -66,6 +70,9 @@ protected:
 	OpenVREventHandler();
 	~OpenVREventHandler();
 };
+
 } // namespace godot
+
+VARIANT_ENUM_CAST(OpenVREventHandler::OpenVREventDataType);
 
 #endif /* OPENVR_EVENT_HANDLER_H */
