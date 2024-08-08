@@ -2,6 +2,7 @@
 // Helper calls and singleton container for accessing openvr
 
 #include "openvr_data.h"
+#include "openvr_overlay_container.h"
 
 #include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/classes/json.hpp>
@@ -16,6 +17,7 @@
 using namespace godot;
 
 openvr_data *openvr_data::singleton = nullptr;
+VMap<uint32_t, openvr_data::vr_event> openvr_data::event_signals;
 
 openvr_data::openvr_data() {
 	// get some default values
@@ -118,6 +120,14 @@ void openvr_data::release() {
 	} else {
 		delete this;
 	}
+}
+
+// Register a signal name and data type for a given EVREventType, which will be used to emit signals for received events at runtime.
+// This is designed to be used via the VREVENT_SIGNAL macro in a class' `_bind_methods`, so the signal is exposed in the editor.
+// To register a new event at runtime use OpenVREventHandler::register_event_signal, exposed in GDScript as the OpenVRInterface
+// autoload.
+void openvr_data::register_event_signal(uint32_t p_event_id, OpenVREventDataType p_type, String p_signal_name) {
+	openvr_data::event_signals.insert(p_event_id, { p_type, p_signal_name });
 }
 
 bool openvr_data::is_initialised() {
@@ -311,6 +321,166 @@ XRPose::TrackingConfidence openvr_data::confidence_from_tracking_result(vr::ETra
 	}
 }
 
+// Convert event data to Variants and emit a signal on the given source.
+void openvr_data::_handle_event(Node *source, vr::VREvent_t event) {
+	if (!openvr_data::event_signals.has(event.eventType)) {
+		return;
+	}
+
+	vr_event info = openvr_data::event_signals[event.eventType];
+
+	// Multiple classes may register event signals, so make sure the one we're actually
+	// emitting from has the signal in question.
+	// TODO: If this proves too slow, event_signals could be converted to a map of class
+	// to registered signals.
+	if (!source->has_signal(info.signal_name)) {
+		return;
+	}
+
+	Dictionary data;
+
+	// The field names below are intentionally not cleaned up to remove type prefixes or
+	// convert to snake case. There's so little documentation already that retaining
+	// searchability is the least we can do. The upstream naming is also so inconsistent
+	// that there's no predictable way to convert them anyway.
+	switch (info.data_type) {
+		case None:
+			break;
+		case Controller:
+			data["button"] = event.data.controller.button;
+			break;
+		case Mouse:
+			data["x"] = event.data.mouse.x;
+			data["y"] = event.data.mouse.y;
+			data["button"] = event.data.mouse.button;
+			data["cursorIndex"] = event.data.mouse.cursorIndex;
+			break;
+		case Scroll:
+			data["xdelta"] = event.data.scroll.xdelta;
+			data["ydelta"] = event.data.scroll.ydelta;
+			data["cursorIndex"] = event.data.scroll.cursorIndex;
+			data["viewportscale"] = event.data.scroll.viewportscale;
+			break;
+		case Process:
+			data["pid"] = event.data.process.pid;
+			data["oldPid"] = event.data.process.oldPid;
+			data["bForced"] = event.data.process.bForced;
+			data["bConnectionLost"] = event.data.process.bConnectionLost;
+			break;
+		case Notification:
+			data["ulUserValue"] = event.data.notification.ulUserValue;
+			data["notificationId"] = event.data.notification.notificationId;
+			break;
+		case Overlay:
+			data["cursorIndex"] = event.data.overlay.cursorIndex;
+			data["devicePath"] = event.data.overlay.devicePath;
+			data["overlayHandle"] = event.data.overlay.overlayHandle;
+			data["memoryBlockId"] = event.data.overlay.memoryBlockId;
+			break;
+		case Status:
+			data["statusState"] = event.data.status.statusState;
+			break;
+		case Keyboard:
+			data["overlayHandle"] = event.data.keyboard.overlayHandle;
+			data["cNewInput"] = event.data.keyboard.cNewInput;
+			data["uUserValue"] = event.data.keyboard.uUserValue;
+			break;
+		case Ipd:
+			data["ipdMeters"] = event.data.ipd.ipdMeters;
+			break;
+		case Chaperone:
+			data["m_nCurrentUniverse"] = event.data.chaperone.m_nCurrentUniverse;
+			data["m_nPreviousUniverse"] = event.data.chaperone.m_nPreviousUniverse;
+			break;
+		case PerformanceTest:
+			data["m_nFidelityLevel"] = event.data.performanceTest.m_nFidelityLevel;
+			break;
+		case TouchPadMove:
+			data["fValueXRaw"] = event.data.touchPadMove.fValueXRaw;
+			data["fValueYRaw"] = event.data.touchPadMove.fValueYRaw;
+			data["bFingerDown"] = event.data.touchPadMove.bFingerDown;
+			data["fValueXFirst"] = event.data.touchPadMove.fValueXFirst;
+			data["fValueYFirst"] = event.data.touchPadMove.fValueYFirst;
+			data["flSecondsFingerDown"] = event.data.touchPadMove.flSecondsFingerDown;
+			break;
+		case SeatedZeroPoseReset:
+			data["bResetBySystemMenu"] = event.data.seatedZeroPoseReset.bResetBySystemMenu;
+			break;
+		case Screenshot:
+			data["type"] = event.data.screenshot.type;
+			data["handle"] = event.data.screenshot.handle;
+			break;
+		case ScreenshotProgress:
+			data["progress"] = event.data.screenshotProgress.progress;
+			break;
+		case ApplicationLaunch:
+			data["pid"] = event.data.applicationLaunch.pid;
+			data["unArgsHandle"] = event.data.applicationLaunch.unArgsHandle;
+			break;
+		case EditingCameraSurface:
+			data["overlayHandle"] = event.data.cameraSurface.overlayHandle;
+			data["nVisualMode"] = event.data.cameraSurface.nVisualMode;
+			break;
+		case MessageOverlay:
+			data["unVRMessageOverlayResponse"] = event.data.messageOverlay.unVRMessageOverlayResponse;
+			break;
+		case Property:
+			data["prop"] = event.data.property.prop;
+			data["container"] = event.data.property.container;
+			break;
+		case HapticVibration:
+			data["fAmplitude"] = event.data.hapticVibration.fAmplitude;
+			data["fFrequency"] = event.data.hapticVibration.fFrequency;
+			data["componentHandle"] = event.data.hapticVibration.componentHandle;
+			data["containerHandle"] = event.data.hapticVibration.containerHandle;
+			data["fDurationSeconds"] = event.data.hapticVibration.fDurationSeconds;
+			break;
+		case WebConsole:
+			data["webConsoleHandle"] = event.data.webConsole.webConsoleHandle;
+			break;
+		case InputBindingLoad:
+			data["pathUrl"] = event.data.inputBinding.pathUrl;
+			data["pathMessage"] = event.data.inputBinding.pathMessage;
+			data["ulAppContainer"] = event.data.inputBinding.ulAppContainer;
+			data["pathControllerType"] = event.data.inputBinding.pathControllerType;
+			break;
+		case InputActionManifestLoad:
+			data["pathMessage"] = event.data.actionManifest.pathMessage;
+			data["pathAppKey"] = event.data.actionManifest.pathAppKey;
+			data["pathManifestPath"] = event.data.actionManifest.pathManifestPath;
+			data["pathMessageParam"] = event.data.actionManifest.pathMessageParam;
+			break;
+		case SpatialAnchor:
+			data["unHandle"] = event.data.spatialAnchor.unHandle;
+			break;
+		case ProgressUpdate:
+			data["pathIcon"] = event.data.progressUpdate.pathIcon;
+			data["fProgress"] = event.data.progressUpdate.fProgress;
+			data["pathDevice"] = event.data.progressUpdate.pathDevice;
+			data["pathInputSource"] = event.data.progressUpdate.pathInputSource;
+			data["pathProgressAction"] = event.data.progressUpdate.pathProgressAction;
+			data["ulApplicationPropertyContainer"] = event.data.progressUpdate.ulApplicationPropertyContainer;
+			break;
+		case ShowUI:
+			data["eType"] = event.data.showUi.eType;
+			break;
+		case ShowDevTools:
+			data["nBrowserIdentifier"] = event.data.showDevTools.nBrowserIdentifier;
+			break;
+		case HDCPError:
+			data["eCode"] = event.data.hdcpError.eCode;
+			break;
+		case AudioVolumeControl:
+			data["fVolumeLevel"] = event.data.audioVolumeControl.fVolumeLevel;
+			break;
+		case AudioMuteControl:
+			data["bMute"] = event.data.audioMuteControl.bMute;
+			break;
+	}
+
+	source->emit_signal(info.signal_name, event.eventAgeSeconds, event.trackedDeviceIndex, data);
+}
+
 void openvr_data::process() {
 	// we need timing info for one or two things..
 	uint64_t msec = Time::get_singleton()->get_ticks_msec();
@@ -435,19 +605,16 @@ void openvr_data::process() {
 
 	// Now we're done updating the state of the universe and can forward signals to anyone interested.
 
-	// For global events, emit_signal needs to happen in XRInterfaceOpenVR since it is an Object.
-	// We store them all here for it to access just after this returns.
 	if (vrevent_handler) {
 		for (int i = 0; i < events_to_signal.size(); i++) {
-			vrevent_handler->handle_event(events_to_signal[i]);
+			_handle_event(vrevent_handler, events_to_signal[i]);
 		}
 	}
 
-	// For overlays, we have access to them directly and can trigger them to emit signals right here.
+	// TODO: Round-robin through the containers so each signal is emitted closer to when it arrived for the containers later in the list.
 	for (int i = 0; i < get_overlay_count(); i++) {
-		OpenVROverlayContainer *container = Object::cast_to<OpenVROverlayContainer>(ObjectDB::get_instance(overlays[i].container_instance_id));
 		while (vr::VROverlay()->PollNextOverlayEvent(overlays[i].handle, &event, sizeof(event))) {
-			container->process_event(event);
+			_handle_event(overlays[i].container, event);
 		}
 	}
 }
@@ -463,10 +630,10 @@ openvr_data::overlay *openvr_data::get_overlay(int p_overlay_id) {
 	return &overlays[p_overlay_id];
 }
 
-int openvr_data::add_overlay(vr::VROverlayHandle_t p_new_value, ObjectID p_container_instance_id) {
+int openvr_data::add_overlay(vr::VROverlayHandle_t p_new_value, OpenVROverlayContainer *p_container) {
 	overlay new_entry;
 	new_entry.handle = p_new_value;
-	new_entry.container_instance_id = p_container_instance_id;
+	new_entry.container = p_container;
 
 	overlays.push_back(new_entry);
 	return (int)overlays.size() - 1;

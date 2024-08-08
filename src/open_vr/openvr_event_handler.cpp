@@ -2,60 +2,46 @@
 #pragma GCC optimize("no-var-tracking") // GCC's variable assignment tracking chokes on the huge number of structs in _bind_methods.
 
 #include "openvr_event_handler.h"
+#include "openvr_event_signals.h"
 #include <godot_cpp/variant/utility_functions.hpp>
 
-// This macro is used to define signals for each VREvent to make it impossible for the list of signals to get out of sync with
-// the events. The name of the signal is automatically derived from the EVREventType. This would normally be impossible since
-// there is no way to introspect the name of enum members. While IVRSystem provides GetEventTypeNameFromEnum, this would
-// require connecting to OpenVR before creating our signals which makes the experience in the editor less than ideal.
-#define VREVENT_SIGNAL(vrevent_name, vrevent_type, source)                                                                    \
-	{                                                                                                                         \
-		String name = String(#vrevent_name).trim_prefix("vr::EVREventType::VREvent_");                                        \
-		ADD_SIGNAL(MethodInfo(name,                                                                                           \
-				PropertyInfo(Variant::INT, "eventAgeSeconds"),                                                                \
-				PropertyInfo(Variant::INT, "trackedDeviceIndex"),                                                             \
-				PropertyInfo(Variant::DICTIONARY, "data")));                                                                  \
-		OpenVREventHandler::event_signals.insert(vrevent_name, (vr_event){ .data_type = vrevent_type, .signal_name = name }); \
-	}
-
 using namespace godot;
-
-VMap<uint32_t, OpenVREventHandler::vr_event> OpenVREventHandler::event_signals;
 
 void OpenVREventHandler::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("register_event_signal", "event_id", "type", "signal_name"), &OpenVREventHandler::register_event_signal);
 
-	BIND_ENUM_CONSTANT(None);
-	BIND_ENUM_CONSTANT(Controller);
-	BIND_ENUM_CONSTANT(Mouse);
-	BIND_ENUM_CONSTANT(Scroll);
-	BIND_ENUM_CONSTANT(Process);
-	BIND_ENUM_CONSTANT(Notification);
-	BIND_ENUM_CONSTANT(Overlay);
-	BIND_ENUM_CONSTANT(Status);
-	BIND_ENUM_CONSTANT(Keyboard);
-	BIND_ENUM_CONSTANT(Ipd);
-	BIND_ENUM_CONSTANT(Chaperone);
-	BIND_ENUM_CONSTANT(PerformanceTest);
-	BIND_ENUM_CONSTANT(TouchPadMove);
-	BIND_ENUM_CONSTANT(SeatedZeroPoseReset);
-	BIND_ENUM_CONSTANT(Screenshot);
-	BIND_ENUM_CONSTANT(ScreenshotProgress);
-	BIND_ENUM_CONSTANT(ApplicationLaunch);
-	BIND_ENUM_CONSTANT(EditingCameraSurface);
-	BIND_ENUM_CONSTANT(MessageOverlay);
-	BIND_ENUM_CONSTANT(Property);
-	BIND_ENUM_CONSTANT(HapticVibration);
-	BIND_ENUM_CONSTANT(WebConsole);
-	BIND_ENUM_CONSTANT(InputBindingLoad);
-	BIND_ENUM_CONSTANT(InputActionManifestLoad);
-	BIND_ENUM_CONSTANT(SpatialAnchor);
-	BIND_ENUM_CONSTANT(ProgressUpdate);
-	BIND_ENUM_CONSTANT(ShowUI);
-	BIND_ENUM_CONSTANT(ShowDevTools);
-	BIND_ENUM_CONSTANT(HDCPError);
-	BIND_ENUM_CONSTANT(AudioVolumeControl);
-	BIND_ENUM_CONSTANT(AudioMuteControl);
+	// Expose the event type constants for use in GDScript land with `register_event_signal`.
+	BIND_ENUM_CONSTANT(openvr_data::None);
+	BIND_ENUM_CONSTANT(openvr_data::Controller);
+	BIND_ENUM_CONSTANT(openvr_data::Mouse);
+	BIND_ENUM_CONSTANT(openvr_data::Scroll);
+	BIND_ENUM_CONSTANT(openvr_data::Process);
+	BIND_ENUM_CONSTANT(openvr_data::Notification);
+	BIND_ENUM_CONSTANT(openvr_data::Overlay);
+	BIND_ENUM_CONSTANT(openvr_data::Status);
+	BIND_ENUM_CONSTANT(openvr_data::Keyboard);
+	BIND_ENUM_CONSTANT(openvr_data::Ipd);
+	BIND_ENUM_CONSTANT(openvr_data::Chaperone);
+	BIND_ENUM_CONSTANT(openvr_data::PerformanceTest);
+	BIND_ENUM_CONSTANT(openvr_data::TouchPadMove);
+	BIND_ENUM_CONSTANT(openvr_data::SeatedZeroPoseReset);
+	BIND_ENUM_CONSTANT(openvr_data::Screenshot);
+	BIND_ENUM_CONSTANT(openvr_data::ScreenshotProgress);
+	BIND_ENUM_CONSTANT(openvr_data::ApplicationLaunch);
+	BIND_ENUM_CONSTANT(openvr_data::EditingCameraSurface);
+	BIND_ENUM_CONSTANT(openvr_data::MessageOverlay);
+	BIND_ENUM_CONSTANT(openvr_data::Property);
+	BIND_ENUM_CONSTANT(openvr_data::HapticVibration);
+	BIND_ENUM_CONSTANT(openvr_data::WebConsole);
+	BIND_ENUM_CONSTANT(openvr_data::InputBindingLoad);
+	BIND_ENUM_CONSTANT(openvr_data::InputActionManifestLoad);
+	BIND_ENUM_CONSTANT(openvr_data::SpatialAnchor);
+	BIND_ENUM_CONSTANT(openvr_data::ProgressUpdate);
+	BIND_ENUM_CONSTANT(openvr_data::ShowUI);
+	BIND_ENUM_CONSTANT(openvr_data::ShowDevTools);
+	BIND_ENUM_CONSTANT(openvr_data::HDCPError);
+	BIND_ENUM_CONSTANT(openvr_data::AudioVolumeControl);
+	BIND_ENUM_CONSTANT(openvr_data::AudioMuteControl);
 
 	// The EVREvent "documentation" is incomplete: only a handful of the events have a comment describing which VREvent_Data_t
 	// is attached to them. Here, we use `Unknown` for the ones that haven't yet been reverse engineered. `None` means it is
@@ -74,374 +60,223 @@ void OpenVREventHandler::_bind_methods() {
 	//
 	// The whitespace below matches Valve's so this is a little easier to skim alongside openvr.h.
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_TrackedDeviceActivated, OpenVREventDataType::None, guess); // Guessing None because the trackedDeviceIndex in the event would identify which one.
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_TrackedDeviceDeactivated, OpenVREventDataType::None, guess);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_TrackedDeviceUpdated, OpenVREventDataType::None, guess);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_TrackedDeviceUserInteractionStarted, OpenVREventDataType::None, guess);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_TrackedDeviceUserInteractionEnded, OpenVREventDataType::None, guess);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_IpdChanged, OpenVREventDataType::Ipd, guess);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_EnterStandbyMode, OpenVREventDataType::None, guess); // Probably no info needed.
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_LeaveStandbyMode, OpenVREventDataType::None, guess);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_TrackedDeviceRoleChanged, OpenVREventDataType::None, guess); // trackedDeviceIndex again
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_WatchdogWakeUpRequested, OpenVREventDataType::None, guess); // Probably no info needed.
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_LensDistortionChanged, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_PropertyChanged, OpenVREventDataType::Property, guess);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_WirelessDisconnect, OpenVREventDataType::None, guess); // trackedDeviceIndex again
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_WirelessReconnect, OpenVREventDataType::None, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_TrackedDeviceActivated, openvr_data::None, guess); // Guessing None because the trackedDeviceIndex in the event would identify which one.
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_TrackedDeviceDeactivated, openvr_data::None, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_TrackedDeviceUpdated, openvr_data::None, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_TrackedDeviceUserInteractionStarted, openvr_data::None, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_TrackedDeviceUserInteractionEnded, openvr_data::None, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_IpdChanged, openvr_data::Ipd, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_EnterStandbyMode, openvr_data::None, guess); // Probably no info needed.
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_LeaveStandbyMode, openvr_data::None, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_TrackedDeviceRoleChanged, openvr_data::None, guess); // trackedDeviceIndex again
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_WatchdogWakeUpRequested, openvr_data::None, guess); // Probably no info needed.
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_LensDistortionChanged, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_PropertyChanged, openvr_data::Property, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_WirelessDisconnect, openvr_data::None, guess); // trackedDeviceIndex again
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_WirelessReconnect, openvr_data::None, guess);
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ButtonPress, OpenVREventDataType::Controller, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ButtonUnpress, OpenVREventDataType::Controller, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ButtonTouch, OpenVREventDataType::Controller, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ButtonUntouch, OpenVREventDataType::Controller, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_ButtonPress, openvr_data::Controller, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_ButtonUnpress, openvr_data::Controller, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_ButtonTouch, openvr_data::Controller, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_ButtonUntouch, openvr_data::Controller, header);
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_Modal_Cancel, OpenVREventDataType::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_Modal_Cancel, openvr_data::Unknown, none);
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_MouseMove, OpenVREventDataType::Mouse, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_MouseButtonDown, OpenVREventDataType::Mouse, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_MouseButtonUp, OpenVREventDataType::Mouse, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_FocusEnter, OpenVREventDataType::Overlay, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_FocusLeave, OpenVREventDataType::Overlay, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ScrollDiscrete, OpenVREventDataType::Scroll, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_TouchPadMove, OpenVREventDataType::Mouse, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_OverlayFocusChanged, OpenVREventDataType::Overlay, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ReloadOverlays, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ScrollSmooth, OpenVREventDataType::Scroll, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_LockMousePosition, OpenVREventDataType::Mouse, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_UnlockMousePosition, OpenVREventDataType::Mouse, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_MouseMove, openvr_data::Mouse, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_MouseButtonDown, openvr_data::Mouse, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_MouseButtonUp, openvr_data::Mouse, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_FocusEnter, openvr_data::Overlay, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_FocusLeave, openvr_data::Overlay, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_ScrollDiscrete, openvr_data::Scroll, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_TouchPadMove, openvr_data::Mouse, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_OverlayFocusChanged, openvr_data::Overlay, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_ReloadOverlays, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_ScrollSmooth, openvr_data::Scroll, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_LockMousePosition, openvr_data::Mouse, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_UnlockMousePosition, openvr_data::Mouse, header);
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_InputFocusCaptured, OpenVREventDataType::Process, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_InputFocusReleased, OpenVREventDataType::Process, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_SceneApplicationChanged, OpenVREventDataType::Process, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_InputFocusChanged, OpenVREventDataType::Process, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_SceneApplicationUsingWrongGraphicsAdapter, OpenVREventDataType::Process, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ActionBindingReloaded, OpenVREventDataType::Process, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_InputFocusCaptured, openvr_data::Process, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_InputFocusReleased, openvr_data::Process, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_SceneApplicationChanged, openvr_data::Process, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_InputFocusChanged, openvr_data::Process, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_SceneApplicationUsingWrongGraphicsAdapter, openvr_data::Process, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_ActionBindingReloaded, openvr_data::Process, header);
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_HideRenderModels, OpenVREventDataType::None, guess); // No more info seems needed
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ShowRenderModels, OpenVREventDataType::None, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_HideRenderModels, openvr_data::None, guess); // No more info seems needed
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_ShowRenderModels, openvr_data::None, guess);
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_SceneApplicationStateChanged, OpenVREventDataType::None, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_SceneApplicationStateChanged, openvr_data::None, header);
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_SceneAppPipeDisconnected, OpenVREventDataType::Process, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_SceneAppPipeDisconnected, openvr_data::Process, header);
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ConsoleOpened, OpenVREventDataType::WebConsole, guess);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ConsoleClosed, OpenVREventDataType::WebConsole, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_ConsoleOpened, openvr_data::WebConsole, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_ConsoleClosed, openvr_data::WebConsole, guess);
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_OverlayShown, OpenVREventDataType::Overlay, guess);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_OverlayHidden, OpenVREventDataType::Overlay, guess);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_DashboardActivated, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_DashboardDeactivated, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_DashboardRequested, OpenVREventDataType::Overlay, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ResetDashboard, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ImageLoaded, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ShowKeyboard, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_HideKeyboard, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_OverlayGamepadFocusGained, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_OverlayGamepadFocusLost, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_OverlaySharedTextureChanged, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ScreenshotTriggered, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ImageFailed, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_DashboardOverlayCreated, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_SwitchGamepadFocus, OpenVREventDataType::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_OverlayShown, openvr_data::None, tested); // Sent to specific overlay, no handle needed
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_OverlayHidden, openvr_data::None, tested);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_DashboardActivated, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_DashboardDeactivated, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_DashboardRequested, openvr_data::Overlay, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_ResetDashboard, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_ImageLoaded, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_ShowKeyboard, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_HideKeyboard, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_OverlayGamepadFocusGained, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_OverlayGamepadFocusLost, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_OverlaySharedTextureChanged, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_ScreenshotTriggered, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_ImageFailed, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_DashboardOverlayCreated, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_SwitchGamepadFocus, openvr_data::Unknown, none);
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_RequestScreenshot, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ScreenshotTaken, OpenVREventDataType::Screenshot, guess);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ScreenshotFailed, OpenVREventDataType::Screenshot, guess);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_SubmitScreenshotToDashboard, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ScreenshotProgressToDashboard, OpenVREventDataType::ScreenshotProgress, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_RequestScreenshot, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_ScreenshotTaken, openvr_data::Screenshot, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_ScreenshotFailed, openvr_data::Screenshot, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_SubmitScreenshotToDashboard, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_ScreenshotProgressToDashboard, openvr_data::ScreenshotProgress, guess);
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_PrimaryDashboardDeviceChanged, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_RoomViewShown, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_RoomViewHidden, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ShowUI, OpenVREventDataType::ShowUI, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ShowDevTools, OpenVREventDataType::ShowDevTools, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_DesktopViewUpdating, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_DesktopViewReady, OpenVREventDataType::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_PrimaryDashboardDeviceChanged, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_RoomViewShown, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_RoomViewHidden, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_ShowUI, openvr_data::ShowUI, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_ShowDevTools, openvr_data::ShowDevTools, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_DesktopViewUpdating, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_DesktopViewReady, openvr_data::Unknown, none);
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_StartDashboard, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ElevatePrism, OpenVREventDataType::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_StartDashboard, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_ElevatePrism, openvr_data::Unknown, none);
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_OverlayClosed, OpenVREventDataType::Overlay, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_OverlayClosed, openvr_data::Overlay, guess);
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_DashboardThumbChanged, OpenVREventDataType::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_DashboardThumbChanged, openvr_data::Unknown, none);
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_DesktopMightBeVisible, OpenVREventDataType::None, guess); // A global state
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_DesktopMightBeHidden, OpenVREventDataType::None, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_DesktopMightBeVisible, openvr_data::None, guess); // A global state
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_DesktopMightBeHidden, openvr_data::None, guess);
 
-	// TODO: haven't updated openvr yet, these don't exist. Use them to test dynamic adding.
-	// VREVENT_SIGNAL(vr::EVREventType::VREvent_MutualSteamCapabilitiesChanged, OpenVREventDataType::Unknown, none);
-	// VREVENT_SIGNAL(vr::EVREventType::VREvent_OverlayCreated, OpenVREventDataType::Overlay, header);
-	// VREVENT_SIGNAL(vr::EVREventType::VREvent_OverlayDestroyed, OpenVREventDataType::Overlay, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_MutualSteamCapabilitiesChanged, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_OverlayCreated, openvr_data::Overlay, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_OverlayDestroyed, openvr_data::Overlay, header);
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_Notification_Shown, OpenVREventDataType::Notification, guess);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_Notification_Hidden, OpenVREventDataType::Notification, guess);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_Notification_BeginInteraction, OpenVREventDataType::Notification, guess);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_Notification_Destroyed, OpenVREventDataType::Notification, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_Notification_Shown, openvr_data::Notification, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_Notification_Hidden, openvr_data::Notification, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_Notification_BeginInteraction, openvr_data::Notification, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_Notification_Destroyed, openvr_data::Notification, guess);
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_Quit, OpenVREventDataType::Process, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ProcessQuit, OpenVREventDataType::Process, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_QuitAcknowledged, OpenVREventDataType::Process, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_DriverRequestedQuit, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_RestartRequested, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_InvalidateSwapTextureSets, OpenVREventDataType::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_Quit, openvr_data::Process, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_ProcessQuit, openvr_data::Process, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_QuitAcknowledged, openvr_data::Process, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_DriverRequestedQuit, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_RestartRequested, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_InvalidateSwapTextureSets, openvr_data::Unknown, none);
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ChaperoneDataHasChanged, OpenVREventDataType::Chaperone, guess);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ChaperoneUniverseHasChanged, OpenVREventDataType::Chaperone, guess);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ChaperoneTempDataHasChanged, OpenVREventDataType::Chaperone, guess);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ChaperoneSettingsHaveChanged, OpenVREventDataType::Chaperone, guess);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_SeatedZeroPoseReset, OpenVREventDataType::SeatedZeroPoseReset, guess);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ChaperoneFlushCache, OpenVREventDataType::Chaperone, guess);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ChaperoneRoomSetupStarting, OpenVREventDataType::Chaperone, guess);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ChaperoneRoomSetupFinished, OpenVREventDataType::Chaperone, guess);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_StandingZeroPoseReset, OpenVREventDataType::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_ChaperoneDataHasChanged, openvr_data::Chaperone, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_ChaperoneUniverseHasChanged, openvr_data::Chaperone, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_ChaperoneTempDataHasChanged, openvr_data::Chaperone, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_ChaperoneSettingsHaveChanged, openvr_data::Chaperone, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_SeatedZeroPoseReset, openvr_data::SeatedZeroPoseReset, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_ChaperoneFlushCache, openvr_data::Chaperone, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_ChaperoneRoomSetupStarting, openvr_data::Chaperone, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_ChaperoneRoomSetupFinished, openvr_data::Chaperone, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_StandingZeroPoseReset, openvr_data::Unknown, none);
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_AudioSettingsHaveChanged, OpenVREventDataType::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_AudioSettingsHaveChanged, openvr_data::Unknown, none);
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_BackgroundSettingHasChanged, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_CameraSettingsHaveChanged, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ReprojectionSettingHasChanged, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ModelSkinSettingsHaveChanged, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_EnvironmentSettingsHaveChanged, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_PowerSettingsHaveChanged, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_EnableHomeAppSettingsHaveChanged, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_SteamVRSectionSettingChanged, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_LighthouseSectionSettingChanged, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_NullSectionSettingChanged, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_UserInterfaceSectionSettingChanged, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_NotificationsSectionSettingChanged, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_KeyboardSectionSettingChanged, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_PerfSectionSettingChanged, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_DashboardSectionSettingChanged, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_WebInterfaceSectionSettingChanged, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_TrackersSectionSettingChanged, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_LastKnownSectionSettingChanged, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_DismissedWarningsSectionSettingChanged, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_GpuSpeedSectionSettingChanged, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_WindowsMRSectionSettingChanged, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_OtherSectionSettingChanged, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_AnyDriverSettingsChanged, OpenVREventDataType::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_BackgroundSettingHasChanged, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_CameraSettingsHaveChanged, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_ReprojectionSettingHasChanged, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_ModelSkinSettingsHaveChanged, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_EnvironmentSettingsHaveChanged, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_PowerSettingsHaveChanged, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_EnableHomeAppSettingsHaveChanged, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_SteamVRSectionSettingChanged, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_LighthouseSectionSettingChanged, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_NullSectionSettingChanged, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_UserInterfaceSectionSettingChanged, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_NotificationsSectionSettingChanged, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_KeyboardSectionSettingChanged, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_PerfSectionSettingChanged, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_DashboardSectionSettingChanged, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_WebInterfaceSectionSettingChanged, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_TrackersSectionSettingChanged, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_LastKnownSectionSettingChanged, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_DismissedWarningsSectionSettingChanged, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_GpuSpeedSectionSettingChanged, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_WindowsMRSectionSettingChanged, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_OtherSectionSettingChanged, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_AnyDriverSettingsChanged, openvr_data::Unknown, none);
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_StatusUpdate, OpenVREventDataType::Status, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_StatusUpdate, openvr_data::Status, guess);
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_WebInterface_InstallDriverCompleted, OpenVREventDataType::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_WebInterface_InstallDriverCompleted, openvr_data::Unknown, none);
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_MCImageUpdated, OpenVREventDataType::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_MCImageUpdated, openvr_data::Unknown, none);
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_FirmwareUpdateStarted, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_FirmwareUpdateFinished, OpenVREventDataType::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_FirmwareUpdateStarted, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_FirmwareUpdateFinished, openvr_data::Unknown, none);
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_KeyboardClosed, OpenVREventDataType::None, guess);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_KeyboardCharInput, OpenVREventDataType::Keyboard, guess);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_KeyboardDone, OpenVREventDataType::None, guess);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_KeyboardOpened_Global, OpenVREventDataType::Keyboard, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_KeyboardClosed_Global, OpenVREventDataType::Keyboard, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_KeyboardClosed, openvr_data::None, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_KeyboardCharInput, openvr_data::Keyboard, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_KeyboardDone, openvr_data::None, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_KeyboardOpened_Global, openvr_data::Keyboard, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_KeyboardClosed_Global, openvr_data::Keyboard, header);
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ApplicationListUpdated, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ApplicationMimeTypeLoad, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ProcessConnected, OpenVREventDataType::Process, guess);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ProcessDisconnected, OpenVREventDataType::Process, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_ApplicationListUpdated, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_ApplicationMimeTypeLoad, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_ProcessConnected, openvr_data::Process, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_ProcessDisconnected, openvr_data::Process, guess);
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_Compositor_ChaperoneBoundsShown, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_Compositor_ChaperoneBoundsHidden, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_Compositor_DisplayDisconnected, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_Compositor_DisplayReconnected, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_Compositor_HDCPError, OpenVREventDataType::HDCPError, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_Compositor_ApplicationNotResponding, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_Compositor_ApplicationResumed, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_Compositor_OutOfVideoMemory, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_Compositor_DisplayModeNotSupported, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_Compositor_StageOverrideReady, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_Compositor_RequestDisconnectReconnect, OpenVREventDataType::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_Compositor_ChaperoneBoundsShown, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_Compositor_ChaperoneBoundsHidden, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_Compositor_DisplayDisconnected, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_Compositor_DisplayReconnected, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_Compositor_HDCPError, openvr_data::HDCPError, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_Compositor_ApplicationNotResponding, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_Compositor_ApplicationResumed, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_Compositor_OutOfVideoMemory, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_Compositor_DisplayModeNotSupported, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_Compositor_StageOverrideReady, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_Compositor_RequestDisconnectReconnect, openvr_data::Unknown, none);
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_TrackedCamera_StartVideoStream, OpenVREventDataType::None, guess); // trackedDeviceIndex probably indicates source
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_TrackedCamera_StopVideoStream, OpenVREventDataType::None, guess);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_TrackedCamera_PauseVideoStream, OpenVREventDataType::None, guess);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_TrackedCamera_ResumeVideoStream, OpenVREventDataType::None, guess);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_TrackedCamera_EditingSurface, OpenVREventDataType::EditingCameraSurface, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_TrackedCamera_StartVideoStream, openvr_data::None, guess); // trackedDeviceIndex probably indicates source
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_TrackedCamera_StopVideoStream, openvr_data::None, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_TrackedCamera_PauseVideoStream, openvr_data::None, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_TrackedCamera_ResumeVideoStream, openvr_data::None, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_TrackedCamera_EditingSurface, openvr_data::EditingCameraSurface, guess);
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_PerformanceTest_EnableCapture, OpenVREventDataType::None, guess);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_PerformanceTest_DisableCapture, OpenVREventDataType::None, guess);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_PerformanceTest_FidelityLevel, OpenVREventDataType::PerformanceTest, guess); // fidelity is the only member of the struct
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_PerformanceTest_EnableCapture, openvr_data::None, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_PerformanceTest_DisableCapture, openvr_data::None, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_PerformanceTest_FidelityLevel, openvr_data::PerformanceTest, guess); // fidelity is the only member of the struct
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_MessageOverlay_Closed, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_MessageOverlayCloseRequested, OpenVREventDataType::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_MessageOverlay_Closed, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_MessageOverlayCloseRequested, openvr_data::Unknown, none);
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_Input_HapticVibration, OpenVREventDataType::HapticVibration, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_Input_BindingLoadFailed, OpenVREventDataType::InputBindingLoad, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_Input_BindingLoadSuccessful, OpenVREventDataType::InputBindingLoad, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_Input_ActionManifestReloaded, OpenVREventDataType::None, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_Input_ActionManifestLoadFailed, OpenVREventDataType::InputActionManifestLoad, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_Input_ProgressUpdate, OpenVREventDataType::ProgressUpdate, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_Input_TrackerActivated, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_Input_BindingsUpdated, OpenVREventDataType::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_Input_BindingSubscriptionChanged, OpenVREventDataType::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_Input_HapticVibration, openvr_data::HapticVibration, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_Input_BindingLoadFailed, openvr_data::InputBindingLoad, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_Input_BindingLoadSuccessful, openvr_data::InputBindingLoad, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_Input_ActionManifestReloaded, openvr_data::None, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_Input_ActionManifestLoadFailed, openvr_data::InputActionManifestLoad, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_Input_ProgressUpdate, openvr_data::ProgressUpdate, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_Input_TrackerActivated, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_Input_BindingsUpdated, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_Input_BindingSubscriptionChanged, openvr_data::Unknown, none);
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_SpatialAnchors_PoseUpdated, OpenVREventDataType::SpatialAnchor, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_SpatialAnchors_DescriptorUpdated, OpenVREventDataType::SpatialAnchor, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_SpatialAnchors_RequestPoseUpdate, OpenVREventDataType::SpatialAnchor, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_SpatialAnchors_RequestDescriptorUpdate, OpenVREventDataType::SpatialAnchor, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_SpatialAnchors_PoseUpdated, openvr_data::SpatialAnchor, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_SpatialAnchors_DescriptorUpdated, openvr_data::SpatialAnchor, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_SpatialAnchors_RequestPoseUpdate, openvr_data::SpatialAnchor, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_SpatialAnchors_RequestDescriptorUpdate, openvr_data::SpatialAnchor, header);
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_SystemReport_Started, OpenVREventDataType::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_SystemReport_Started, openvr_data::Unknown, none);
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_Monitor_ShowHeadsetView, OpenVREventDataType::Process, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_Monitor_HideHeadsetView, OpenVREventDataType::Process, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_Monitor_ShowHeadsetView, openvr_data::Process, header);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_Monitor_HideHeadsetView, openvr_data::Process, header);
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_Audio_SetSpeakersVolume, OpenVREventDataType::AudioVolumeControl, guess);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_Audio_SetSpeakersMute, OpenVREventDataType::AudioMuteControl, guess);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_Audio_SetMicrophoneVolume, OpenVREventDataType::AudioVolumeControl, guess);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_Audio_SetMicrophoneMute, OpenVREventDataType::AudioMuteControl, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_Audio_SetSpeakersVolume, openvr_data::AudioVolumeControl, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_Audio_SetSpeakersMute, openvr_data::AudioMuteControl, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_Audio_SetMicrophoneVolume, openvr_data::AudioVolumeControl, guess);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_Audio_SetMicrophoneMute, openvr_data::AudioMuteControl, guess);
 }
 
-void OpenVREventHandler::handle_event(vr::VREvent_t event) {
-	if (!OpenVREventHandler::event_signals.has(event.eventType)) {
-		return;
-	}
-
-	OpenVREventHandler::vr_event info = OpenVREventHandler::event_signals[event.eventType];
-	Dictionary data;
-
-	// The field names below are intentionally not cleaned up to remove type prefixes or
-	// convert to snake case. There's so little documentation already that retaining
-	// searchability is the least we can do. The upstream naming is also so inconsistent
-	// that there's no predictable way to convert them anyway.
-	switch (info.data_type) {
-		case None:
-			break;
-		case Controller:
-			data["button"] = event.data.controller.button;
-			break;
-		case Mouse:
-			data["x"] = event.data.mouse.x;
-			data["y"] = event.data.mouse.y;
-			data["button"] = event.data.mouse.button;
-			data["cursorIndex"] = event.data.mouse.cursorIndex;
-			break;
-		case Scroll:
-			data["xdelta"] = event.data.scroll.xdelta;
-			data["ydelta"] = event.data.scroll.ydelta;
-			data["cursorIndex"] = event.data.scroll.cursorIndex;
-			data["viewportscale"] = event.data.scroll.viewportscale;
-			break;
-		case Process:
-			data["pid"] = event.data.process.pid;
-			data["oldPid"] = event.data.process.oldPid;
-			data["bForced"] = event.data.process.bForced;
-			data["bConnectionLost"] = event.data.process.bConnectionLost;
-			break;
-		case Notification:
-			data["ulUserValue"] = event.data.notification.ulUserValue;
-			data["notificationId"] = event.data.notification.notificationId;
-			break;
-		case Overlay:
-			data["cursorIndex"] = event.data.overlay.cursorIndex;
-			data["devicePath"] = event.data.overlay.devicePath;
-			data["overlayHandle"] = event.data.overlay.overlayHandle;
-			data["memoryBlockId"] = event.data.overlay.memoryBlockId;
-			break;
-		case Status:
-			data["statusState"] = event.data.status.statusState;
-			break;
-		case Keyboard:
-			data["overlayHandle"] = event.data.keyboard.overlayHandle;
-			data["cNewInput"] = event.data.keyboard.cNewInput;
-			data["uUserValue"] = event.data.keyboard.uUserValue;
-			break;
-		case Ipd:
-			data["ipdMeters"] = event.data.ipd.ipdMeters;
-			break;
-		case Chaperone:
-			data["m_nCurrentUniverse"] = event.data.chaperone.m_nCurrentUniverse;
-			data["m_nPreviousUniverse"] = event.data.chaperone.m_nPreviousUniverse;
-			break;
-		case PerformanceTest:
-			data["m_nFidelityLevel"] = event.data.performanceTest.m_nFidelityLevel;
-			break;
-		case TouchPadMove:
-			data["fValueXRaw"] = event.data.touchPadMove.fValueXRaw;
-			data["fValueYRaw"] = event.data.touchPadMove.fValueYRaw;
-			data["bFingerDown"] = event.data.touchPadMove.bFingerDown;
-			data["fValueXFirst"] = event.data.touchPadMove.fValueXFirst;
-			data["fValueYFirst"] = event.data.touchPadMove.fValueYFirst;
-			data["flSecondsFingerDown"] = event.data.touchPadMove.flSecondsFingerDown;
-			break;
-		case SeatedZeroPoseReset:
-			data["bResetBySystemMenu"] = event.data.seatedZeroPoseReset.bResetBySystemMenu;
-			break;
-		case Screenshot:
-			data["type"] = event.data.screenshot.type;
-			data["handle"] = event.data.screenshot.handle;
-			break;
-		case ScreenshotProgress:
-			data["progress"] = event.data.screenshotProgress.progress;
-			break;
-		case ApplicationLaunch:
-			data["pid"] = event.data.applicationLaunch.pid;
-			data["unArgsHandle"] = event.data.applicationLaunch.unArgsHandle;
-			break;
-		case EditingCameraSurface:
-			data["overlayHandle"] = event.data.cameraSurface.overlayHandle;
-			data["nVisualMode"] = event.data.cameraSurface.nVisualMode;
-			break;
-		case MessageOverlay:
-			data["unVRMessageOverlayResponse"] = event.data.messageOverlay.unVRMessageOverlayResponse;
-			break;
-		case Property:
-			data["prop"] = event.data.property.prop;
-			data["container"] = event.data.property.container;
-			break;
-		case HapticVibration:
-			data["fAmplitude"] = event.data.hapticVibration.fAmplitude;
-			data["fFrequency"] = event.data.hapticVibration.fFrequency;
-			data["componentHandle"] = event.data.hapticVibration.componentHandle;
-			data["containerHandle"] = event.data.hapticVibration.containerHandle;
-			data["fDurationSeconds"] = event.data.hapticVibration.fDurationSeconds;
-			break;
-		case WebConsole:
-			data["webConsoleHandle"] = event.data.webConsole.webConsoleHandle;
-			break;
-		case InputBindingLoad:
-			data["pathUrl"] = event.data.inputBinding.pathUrl;
-			data["pathMessage"] = event.data.inputBinding.pathMessage;
-			data["ulAppContainer"] = event.data.inputBinding.ulAppContainer;
-			data["pathControllerType"] = event.data.inputBinding.pathControllerType;
-			break;
-		case InputActionManifestLoad:
-			data["pathMessage"] = event.data.actionManifest.pathMessage;
-			data["pathAppKey"] = event.data.actionManifest.pathAppKey;
-			data["pathManifestPath"] = event.data.actionManifest.pathManifestPath;
-			data["pathMessageParam"] = event.data.actionManifest.pathMessageParam;
-			break;
-		case SpatialAnchor:
-			data["unHandle"] = event.data.spatialAnchor.unHandle;
-			break;
-		case ProgressUpdate:
-			data["pathIcon"] = event.data.progressUpdate.pathIcon;
-			data["fProgress"] = event.data.progressUpdate.fProgress;
-			data["pathDevice"] = event.data.progressUpdate.pathDevice;
-			data["pathInputSource"] = event.data.progressUpdate.pathInputSource;
-			data["pathProgressAction"] = event.data.progressUpdate.pathProgressAction;
-			data["ulApplicationPropertyContainer"] = event.data.progressUpdate.ulApplicationPropertyContainer;
-			break;
-		case ShowUI:
-			data["eType"] = event.data.showUi.eType;
-			break;
-		case ShowDevTools:
-			data["nBrowserIdentifier"] = event.data.showDevTools.nBrowserIdentifier;
-			break;
-		case HDCPError:
-			data["eCode"] = event.data.hdcpError.eCode;
-			break;
-		case AudioVolumeControl:
-			data["fVolumeLevel"] = event.data.audioVolumeControl.fVolumeLevel;
-			break;
-		case AudioMuteControl:
-			data["bMute"] = event.data.audioMuteControl.bMute;
-			break;
-	}
-
-	this->emit_signal(info.signal_name, event.eventAgeSeconds, event.trackedDeviceIndex, data);
-}
-
-void OpenVREventHandler::register_event_signal(uint32_t p_event_id, OpenVREventDataType p_type, String p_signal_name) {
+void OpenVREventHandler::register_event_signal(uint32_t p_event_id, openvr_data::OpenVREventDataType p_type, String p_signal_name) {
 	Dictionary eventAgeSeconds;
 	eventAgeSeconds["name"] = "eventAgeSeconds";
 	eventAgeSeconds["type"] = Variant::INT;
@@ -458,7 +293,7 @@ void OpenVREventHandler::register_event_signal(uint32_t p_event_id, OpenVREventD
 	args.push_back(data);
 
 	this->add_user_signal(p_signal_name, args);
-	OpenVREventHandler::event_signals.insert(p_event_id, (vr_event){ .data_type = p_type, .signal_name = p_signal_name });
+	openvr_data::register_event_signal(p_event_id, p_type, p_signal_name);
 }
 
 OpenVREventHandler::OpenVREventHandler() {
