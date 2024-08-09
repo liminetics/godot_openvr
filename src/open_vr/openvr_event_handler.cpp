@@ -58,7 +58,9 @@ void OpenVREventHandler::_bind_methods() {
 	//
 	// These values are only for human reference. Feel free to add another if it's more nuanced.
 	//
-	// The whitespace below matches Valve's so this is a little easier to skim alongside openvr.h.
+	// The whitespace below matches Valve's so this is a little easier to skim alongside openvr.h. Overlay events are left
+	// here as comments for completeness, but actually exist in openvr_overlay_container.cpp. Other events that are sent only
+	// to the compositor, etc, are also preserved as comments for completeness.
 
 	VREVENT_SIGNAL(vr::EVREventType::VREvent_TrackedDeviceActivated, openvr_data::None, guess); // Guessing None because the trackedDeviceIndex in the event would identify which one.
 	VREVENT_SIGNAL(vr::EVREventType::VREvent_TrackedDeviceDeactivated, openvr_data::None, guess);
@@ -82,18 +84,18 @@ void OpenVREventHandler::_bind_methods() {
 
 	VREVENT_SIGNAL(vr::EVREventType::VREvent_Modal_Cancel, openvr_data::Unknown, none);
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_MouseMove, openvr_data::Mouse, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_MouseButtonDown, openvr_data::Mouse, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_MouseButtonUp, openvr_data::Mouse, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_FocusEnter, openvr_data::Overlay, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_FocusLeave, openvr_data::Overlay, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ScrollDiscrete, openvr_data::Scroll, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_TouchPadMove, openvr_data::Mouse, header);
+	// vr::EVREventType::VREvent_MouseMove
+	// vr::EVREventType::VREvent_MouseButtonDown
+	// vr::EVREventType::VREvent_MouseButtonUp
+	// vr::EVREventType::VREvent_FocusEnter
+	// vr::EVREventType::VREvent_FocusLeave
+	// vr::EVREventType::VREvent_ScrollDiscrete
+	// vr::EVREventType::VREvent_TouchPadMove
 	VREVENT_SIGNAL(vr::EVREventType::VREvent_OverlayFocusChanged, openvr_data::Overlay, header);
 	VREVENT_SIGNAL(vr::EVREventType::VREvent_ReloadOverlays, openvr_data::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ScrollSmooth, openvr_data::Scroll, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_LockMousePosition, openvr_data::Mouse, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_UnlockMousePosition, openvr_data::Mouse, header);
+	// vr::EVREventType::VREvent_ScrollSmooth
+	// vr::EVREventType::VREvent_LockMousePosition
+	// vr::EVREventType::VREvent_UnlockMousePosition
 
 	VREVENT_SIGNAL(vr::EVREventType::VREvent_InputFocusCaptured, openvr_data::Process, header);
 	VREVENT_SIGNAL(vr::EVREventType::VREvent_InputFocusReleased, openvr_data::Process, header);
@@ -112,28 +114,28 @@ void OpenVREventHandler::_bind_methods() {
 	VREVENT_SIGNAL(vr::EVREventType::VREvent_ConsoleOpened, openvr_data::WebConsole, guess);
 	VREVENT_SIGNAL(vr::EVREventType::VREvent_ConsoleClosed, openvr_data::WebConsole, guess);
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_OverlayShown, openvr_data::None, tested); // Sent to specific overlay, no handle needed
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_OverlayHidden, openvr_data::None, tested);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_DashboardActivated, openvr_data::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_DashboardDeactivated, openvr_data::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_DashboardRequested, openvr_data::Overlay, header);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ResetDashboard, openvr_data::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ImageLoaded, openvr_data::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ShowKeyboard, openvr_data::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_HideKeyboard, openvr_data::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_OverlayGamepadFocusGained, openvr_data::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_OverlayGamepadFocusLost, openvr_data::Unknown, none);
+	// vr::EVREventType::VREvent_OverlayShown
+	// vr::EVREventType::VREvent_OverlayHidden
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_DashboardActivated, openvr_data::None, tested);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_DashboardDeactivated, openvr_data::None, tested);
+	// vr::EVREventType::VREvent_DashboardRequested
+	// vr::EVREventType::VREvent_ResetDashboard
+	// vr::EVREventType::VREvent_ImageLoaded
+	// vr::EVREventType::VREvent_ShowKeyboard
+	// vr::EVREventType::VREvent_HideKeyboard
+	// vr::EVREventType::VREvent_OverlayGamepadFocusGained
+	// vr::EVREventType::VREvent_OverlayGamepadFocusLost
 	VREVENT_SIGNAL(vr::EVREventType::VREvent_OverlaySharedTextureChanged, openvr_data::Unknown, none);
 	VREVENT_SIGNAL(vr::EVREventType::VREvent_ScreenshotTriggered, openvr_data::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ImageFailed, openvr_data::Unknown, none);
+	// vr::EVREventType::VREvent_ImageFailed
 	VREVENT_SIGNAL(vr::EVREventType::VREvent_DashboardOverlayCreated, openvr_data::Unknown, none);
 	VREVENT_SIGNAL(vr::EVREventType::VREvent_SwitchGamepadFocus, openvr_data::Unknown, none);
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_RequestScreenshot, openvr_data::Unknown, none);
+	// vr::EVREventType::VREvent_RequestScreenshot
 	VREVENT_SIGNAL(vr::EVREventType::VREvent_ScreenshotTaken, openvr_data::Screenshot, guess);
 	VREVENT_SIGNAL(vr::EVREventType::VREvent_ScreenshotFailed, openvr_data::Screenshot, guess);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_SubmitScreenshotToDashboard, openvr_data::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ScreenshotProgressToDashboard, openvr_data::ScreenshotProgress, guess);
+	// vr::EVREventType::VREvent_SubmitScreenshotToDashboard
+	// vr::EVREventType::VREvent_ScreenshotProgressToDashboard
 
 	VREVENT_SIGNAL(vr::EVREventType::VREvent_PrimaryDashboardDeviceChanged, openvr_data::Unknown, none);
 	VREVENT_SIGNAL(vr::EVREventType::VREvent_RoomViewShown, openvr_data::Unknown, none);
@@ -143,12 +145,12 @@ void OpenVREventHandler::_bind_methods() {
 	VREVENT_SIGNAL(vr::EVREventType::VREvent_DesktopViewUpdating, openvr_data::Unknown, none);
 	VREVENT_SIGNAL(vr::EVREventType::VREvent_DesktopViewReady, openvr_data::Unknown, none);
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_StartDashboard, openvr_data::Unknown, none);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_ElevatePrism, openvr_data::Unknown, none);
+	// vr::EVREventType::VREvent_StartDashboard
+	// vr::EVREventType::VREvent_ElevatePrism
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_OverlayClosed, openvr_data::Overlay, guess);
+	// vr::EVREventType::VREvent_OverlayClosed
 
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_DashboardThumbChanged, openvr_data::Unknown, none);
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_DashboardThumbChanged, openvr_data::Overlay, tested);
 
 	VREVENT_SIGNAL(vr::EVREventType::VREvent_DesktopMightBeVisible, openvr_data::None, guess); // A global state
 	VREVENT_SIGNAL(vr::EVREventType::VREvent_DesktopMightBeHidden, openvr_data::None, guess);
