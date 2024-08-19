@@ -10,7 +10,7 @@
 		String name = String(#vrevent_id).trim_prefix("vr::EVREventType::VREvent_"); \
 		ADD_SIGNAL(MethodInfo(name,                                                  \
 				PropertyInfo(Variant::INT, "eventAgeSeconds"),                       \
-				PropertyInfo(Variant::INT, "trackedDeviceIndex"),                    \
+				PropertyInfo(Variant::OBJECT, "positionalTracker"),                  \
 				PropertyInfo(Variant::DICTIONARY, "data")));                         \
 		openvr_data::register_event_signal(vrevent_id, vrevent_type, name);          \
 	}

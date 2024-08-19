@@ -478,7 +478,11 @@ void openvr_data::_handle_event(Node *source, vr::VREvent_t event) {
 			break;
 	}
 
-	source->emit_signal(info.signal_name, event.eventAgeSeconds, event.trackedDeviceIndex, data);
+	Ref<XRPositionalTracker> tracker = NULL;
+	if (event.trackedDeviceIndex != vr::k_unTrackedDeviceIndexInvalid) {
+		tracker = tracked_devices[event.trackedDeviceIndex].tracker;
+	}
+	source->emit_signal(info.signal_name, event.eventAgeSeconds, tracker, data);
 }
 
 void openvr_data::process() {
