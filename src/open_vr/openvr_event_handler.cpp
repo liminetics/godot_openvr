@@ -55,6 +55,7 @@ void OpenVREventHandler::_bind_methods() {
 	// - "guess" means makes sense but hasn't been tested
 	// - "tested" means it was a guess but has been tested and seems to return the correct info
 	// - "header" means openvr.h says so
+	// - "comment" means see the comment for details
 	//
 	// These values are only for human reference. Feel free to add another if it's more nuanced.
 	//
@@ -70,7 +71,7 @@ void OpenVREventHandler::_bind_methods() {
 	VREVENT_SIGNAL(vr::EVREventType::VREvent_IpdChanged, openvr_data::Ipd, guess);
 	VREVENT_SIGNAL(vr::EVREventType::VREvent_EnterStandbyMode, openvr_data::None, guess); // Probably no info needed.
 	VREVENT_SIGNAL(vr::EVREventType::VREvent_LeaveStandbyMode, openvr_data::None, guess);
-	VREVENT_SIGNAL(vr::EVREventType::VREvent_TrackedDeviceRoleChanged, openvr_data::None, guess); // trackedDeviceIndex again
+	VREVENT_SIGNAL(vr::EVREventType::VREvent_TrackedDeviceRoleChanged, openvr_data::None, comment); // https://github.com/ValveSoftware/openvr/issues/853: No data OR trackedDeviceIndex, re-query all devices.
 	VREVENT_SIGNAL(vr::EVREventType::VREvent_WatchdogWakeUpRequested, openvr_data::None, guess); // Probably no info needed.
 	VREVENT_SIGNAL(vr::EVREventType::VREvent_LensDistortionChanged, openvr_data::Unknown, none);
 	VREVENT_SIGNAL(vr::EVREventType::VREvent_PropertyChanged, openvr_data::Property, guess);
