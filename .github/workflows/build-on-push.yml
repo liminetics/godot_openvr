@@ -77,6 +77,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Create destination and populate addon resources
         run: |
+          pwd
+          ls -R
           mkdir -p godot_openvr_plugin/addons
           cp -r godot_openvr/demo/addons/godot-openvr godot_openvr_plugin/addons/
       - name: Download per-platform binaries into addon
