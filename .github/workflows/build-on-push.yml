@@ -75,6 +75,8 @@ jobs:
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       - uses: actions/checkout@v4
+        with:
+          path: godot_openvr
       - name: Create destination and populate addon resources
         run: |
           pwd
