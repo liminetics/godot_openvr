@@ -3,7 +3,7 @@ name: Build on push
 # TODO: Add mingw to matrix
 
 # Controls when the action will run. Triggers the workflow on push or pull request
-# events, but only for the master branch we'll create .zip files
+# events, but only for the ci-test branch we'll create .zip files
 on: [push, pull_request]
 
 jobs:
@@ -70,7 +70,7 @@ jobs:
     name: Assemble release bundle
     runs-on: ubuntu-20.04
     needs: build
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags'))
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/ci-test' || startsWith(github.ref, 'refs/tags'))
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
@@ -90,7 +90,7 @@ jobs:
         run: |
           cd godot_openvr
           echo "GITHUB_SHA_SHORT=$(git rev-parse --short ${{ github.sha }})" >> $GITHUB_ENV
-        if: github.ref == 'refs/heads/master'
+        if: github.ref == 'refs/heads/ci-test'
       - name: Get tag name
         run: |
           cd godot_openvr
@@ -127,7 +127,7 @@ jobs:
             This is an automated build for changeset ${{ env.GITHUB_SHA_SHORT }}
           draft: false
           prerelease: true
-        if: github.ref == 'refs/heads/master'
+        if: github.ref == 'refs/heads/ci-test'
       - name: Upload asset
         id: upload-release-asset
         uses: actions/upload-release-asset@v1
@@ -138,4 +138,4 @@ jobs:
           asset_path: ./godot-openvr.zip
           asset_name: godot-openvr.zip
           asset_content_type: application/zip
-        if: github.ref == 'refs/heads/master'
+        if: github.ref == 'refs/heads/ci-test'
