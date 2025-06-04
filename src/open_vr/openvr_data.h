@@ -28,7 +28,6 @@
 #include <vector>
 
 namespace godot {
-
 class OpenVREventHandler; // Cyclic reference...
 class OpenVROverlayContainer;
 

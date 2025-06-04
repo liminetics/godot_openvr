@@ -22,7 +22,6 @@ protected:
 	OpenVREventHandler();
 	~OpenVREventHandler();
 };
-
 } // namespace godot
 
 #endif /* OPENVR_EVENT_HANDLER_H */
